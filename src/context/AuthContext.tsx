@@ -56,8 +56,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name: data.user.name,
           email: data.user.email
         };
-
-        console.log(loggedInUser);
         
         setUser(loggedInUser);
         localStorage.setItem('mindful_users', JSON.stringify(loggedInUser));
@@ -85,11 +83,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       const data = response.data;
-      console.log(data);
+      console.log('Registration response:', data);
 
       if (data.success) {
         const registeredUser = {
-          id: data.user.id,
+          id: data.user._id,
           name: data.user.name,
           email: data.user.email
         };

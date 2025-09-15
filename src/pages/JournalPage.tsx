@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { Calendar as CalendarIcon, PlusCircle, Edit, Trash2, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 type MoodEntry = {
   _id: string;
@@ -49,23 +50,45 @@ const moods = [
 ];
 
 const JournalPage = () => {
+  const { user } = useAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [mood, setMood] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
   const [entries, setEntries] = useState<MoodEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Function to clear form and exit edit mode
+  const clearForm = () => {
+    setDate(new Date());
+    setMood('');
+    setContent('');
+    setTags('');
+    setIsEditing(null);
+  };
 
   useEffect(() => {
+    if (!user) {
+      // Clear entries when user logs out
+      setEntries([]);
+      clearForm();
+      return;
+    }
+
+    if (!user.id) {
+      return; // Don't fetch if user ID is not available yet
+    }
+
     const fetchEntries = async () => {
+      setIsLoading(true);
       try {
-        const response = await fetch('http://localhost:4000/api/journal?userId=67fe8bf226d6518f4dcb207f', {
+        const response = await fetch(`http://localhost:4000/api/journal?userId=${user.id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
-          // credentials: 'include',
         });
-        console.log(response);
+        
         if (response.ok) {
           const data = await response.json();
           // Convert date strings to Date objects
@@ -79,26 +102,63 @@ const JournalPage = () => {
         }
       } catch (error) {
         toast.error('An error occurred while fetching entries');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchEntries();
-  }, []);
+  }, [user, user?.id]);
+
+  // Clear form when user changes to prevent data leakage
+  useEffect(() => {
+    if (user) {
+      clearForm();
+    }
+  }, [user?.id]);
+
+  // Clear form when user logs out
+  useEffect(() => {
+    if (!user) {
+      clearForm();
+    }
+  }, [user]);
+
   const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Function to check if user can perform actions
+  const canPerformAction = () => {
+    return !!user;
+  };
+
+  // Function to get user-specific storage key
+  const getUserStorageKey = (key: string) => {
+    return user ? `${key}_${user.id}` : key;
+  };
 
   const handleAddEntry = async () => {
+    if (!canPerformAction()) {
+      toast.error('Please log in to add journal entries');
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error('User ID is missing. Please try logging in again.');
+      return;
+    }
+
     if (!date || !mood || !content) {
       toast.error('Please fill in all fields');
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:4000/api/journal?userId=67fe8bf226d6518f4dcb207f', {
+      const response = await fetch(`http://localhost:4000/api/journal?userId=${user.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        // credentials: 'include',
         body: JSON.stringify({
           date,
           mood,
@@ -117,10 +177,7 @@ const JournalPage = () => {
         setEntries([entryWithDate, ...entries]);
         toast.success('Journal entry added!');
         // Clear form
-        setDate(new Date());
-        setMood('');
-        setContent('');
-        setTags('');
+        clearForm();
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || 'Failed to add journal entry');
@@ -131,44 +188,54 @@ const JournalPage = () => {
   };
 
   const handleEditEntry = async (id: string) => {
+    if (!canPerformAction()) {
+      toast.error('Please log in to edit journal entries');
+      return;
+    }
+
     const entry = entries.find(e => e._id === id);
     if (!entry) return;
 
-    try {
-      // Fetch the latest entry from the backend in case it's out of sync
-      const response = await fetch(`/api/journal/${id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        //credentials: 'include',
-      });
-
-      let entryData = entry;
-      if (response.ok) {
-        entryData = await response.json();
+    setIsEditing(id);
+    setDate(new Date(entry.date));
+    setMood(entry.mood);
+    setContent(entry.content);
+    setTags(Array.isArray(entry.tags) ? entry.tags.join(', ') : '');
+    
+    // Scroll to the form for better UX
+    setTimeout(() => {
+      const formElement = document.querySelector('[data-form="journal-form"]');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-
-      setIsEditing(id);
-      setDate(new Date(entryData.date));
-      setMood(entryData.mood);
-      setContent(entryData.content);
-      setTags(Array.isArray(entryData.tags) ? entryData.tags.join(', ') : '');
-    } catch (error) {
-      toast.error('Failed to fetch entry for editing');
-    }
+    }, 100);
   };
 
   const handleUpdateEntry = async () => {
+    if (!canPerformAction()) {
+      toast.error('Please log in to update journal entries');
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error('User ID is missing. Please try logging in again.');
+      return;
+    }
+
     if (!isEditing) return;
 
+    if (!date || !mood || !content) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsUpdating(true);
     try {
-      const response = await fetch(`/api/journal/${isEditing}?userId=67fe8bf226d6518f4dcb207f`, {
+      const response = await fetch(`http://localhost:4000/api/journal/${isEditing}?userId=${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        // credentials: 'include',
         body: JSON.stringify({
           date,
           mood,
@@ -190,36 +257,48 @@ const JournalPage = () => {
         setEntries(updatedEntries);
         toast.success('Journal entry updated!');
         // Clear form and exit edit mode
-        setIsEditing(null);
-        setDate(new Date());
-        setMood('');
-        setContent('');
-        setTags('');
+        clearForm();
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || 'Failed to update journal entry');
       }
     } catch (error: any) {
       toast.error('An error occurred while updating the entry');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
   const handleDeleteEntry = async (id: string) => {
+    if (!canPerformAction()) {
+      toast.error('Please log in to delete journal entries');
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error('User ID is missing. Please try logging in again.');
+      return;
+    }
+
     try {
-      console.log(id);
-      const response = await fetch(`/api/journal/${id}?userId=67fe8bf226d6518f4dcb207f`, {
+      const response = await fetch(`http://localhost:4000/api/journal/${id}?userId=${user.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        //credentials: 'include',
       });
 
-      setEntries(entries.filter(entry => entry._id !== id));
-      toast.success('Journal entry deleted');
+      if (response.ok) {
+        // Only remove from local state if server deletion was successful
+        setEntries(entries.filter(entry => entry._id !== id));
+        toast.success('Journal entry deleted');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to delete entry');
+      }
     } catch (error: any) {
       console.log(error);
-      toast.error(error.message || 'Failed to delete entry');
+      toast.error('An error occurred while deleting the entry');
     }
   };
 
@@ -233,16 +312,41 @@ const JournalPage = () => {
     return foundMood ? foundMood.color : 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
+  // Show loading state while fetching entries
+  if (isLoading) {
+    return (
+      <div className="container mx-auto max-w-6xl px-4 py-8">
+        <div className="text-center py-20">
+          <div className="text-muted-foreground">Loading your journal entries...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show authentication required message if user is not logged in
+  if (!user) {
+    return (
+      <div className="container mx-auto max-w-6xl px-4 py-8">
+        <div className="text-center py-20">
+          <div className="text-4xl mb-4">🔒</div>
+          <h1 className="text-3xl font-bold mb-2">Authentication Required</h1>
+          <p className="text-muted-foreground">Please log in to access your mood journal</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Mood Journal</h1>
         <p className="text-muted-foreground">Track your emotions and reflect on your mental wellbeing</p>
+        <p className="text-sm text-muted-foreground mt-2">Welcome back, {user.name}!</p>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Journal Entry Form */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1" data-form="journal-form">
           <CardHeader>
             <CardTitle>{isEditing ? 'Edit Entry' : 'New Entry'}</CardTitle>
             <CardDescription>
@@ -311,11 +415,11 @@ const JournalPage = () => {
           <CardFooter>
             {isEditing ? (
               <div className="flex space-x-2 w-full">
-                <Button variant="outline" className="flex-1" onClick={() => setIsEditing(null)}>
+                <Button variant="outline" className="flex-1" onClick={clearForm}>
                   Cancel
                 </Button>
-                <Button className="flex-1" onClick={handleUpdateEntry}>
-                  <Save className="mr-2 h-4 w-4" /> Update
+                <Button className="flex-1" onClick={handleUpdateEntry} disabled={isUpdating}>
+                  <Save className="mr-2 h-4 w-4" /> {isUpdating ? 'Updating...' : 'Update'}
                 </Button>
               </div>
             ) : (
@@ -340,7 +444,7 @@ const JournalPage = () => {
             </div>
           ) : (
             entries.map((entry) => (
-              <Card key={entry._id} className="overflow-hidden">
+              <Card key={entry._id} className={`overflow-hidden ${isEditing === entry._id ? 'ring-2 ring-primary' : ''}`}>
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
                     <div>
@@ -365,10 +469,20 @@ const JournalPage = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end space-x-2 pt-0">
-                  <Button variant="ghost" size="sm" onClick={() => handleEditEntry(entry._id)}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleEditEntry(entry._id)}
+                    disabled={!canPerformAction()}
+                  >
                     <Edit className="h-4 w-4 mr-1" /> Edit
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => {console.log(entry._id); handleDeleteEntry(entry._id)}}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleDeleteEntry(entry._id)}
+                    disabled={!canPerformAction()}
+                  >
                     <Trash2 className="h-4 w-4 mr-1" /> Delete
                   </Button>
                 </CardFooter>

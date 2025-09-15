@@ -27,37 +27,37 @@ const ResourcesPage = () => {
                 title: "Understanding Anxiety",
                 description: "Learn about anxiety causes and symptoms",
                 content: "This comprehensive guide explains the biological and psychological roots of anxiety disorders, common symptoms, and when to seek professional help.",
-                link: "#"
+                link: "https://www.mayoclinic.org/diseases-conditions/anxiety/symptoms-causes/syc-20350961"
               },
               {
                 title: "Mindfulness Basics",
                 description: "An introduction to mindfulness practice",
                 content: "Discover how mindfulness can help you become more aware of your thoughts and feelings, and develop healthier responses to stress.",
-                link: "#"
+                link: "https://www.mindful.org/what-is-mindfulness/"
               },
               {
                 title: "The Science of Happiness",
                 description: "Research-backed ways to feel happier",
                 content: "Explore what scientific research tells us about what truly makes people happy, and how you can apply these insights in your daily life.",
-                link: "#"
+                link: "https://www.psychologytoday.com/us/blog/the-science-happiness"
               },
               {
                 title: "Building Resilience",
                 description: "Strategies to bounce back from challenges",
                 content: "Learn practical techniques for developing emotional resilience and navigating life's difficulties with greater strength and perspective.",
-                link: "#"
+                link: "https://www.apa.org/topics/resilience"
               },
               {
                 title: "Improving Sleep Quality",
                 description: "Tips for better rest and recovery",
                 content: "Discover evidence-based strategies for improving your sleep quality, an essential foundation for good mental health.",
-                link: "#"
+                link: "https://www.sleepfoundation.org/sleep-hygiene"
               },
               {
                 title: "Managing Work Stress",
                 description: "Balancing productivity and wellbeing",
                 content: "Find practical approaches to manage workplace stress while maintaining performance and protecting your mental health.",
-                link: "#"
+                link: "https://www.helpguide.org/articles/stress/stress-in-the-workplace.htm"
               },
             ].map((item, i) => (
               <Card key={i} className="card-hover">
@@ -74,7 +74,7 @@ const ResourcesPage = () => {
                 </CardContent>
                 <CardFooter>
                   <Button variant="outline" className="w-full" asChild>
-                    <a href={item.link}>
+                    <a href={item.link} target="_blank" rel="noopener noreferrer">
                       Read Article <ExternalLink className="ml-2 h-4 w-4" />
                     </a>
                   </Button>
@@ -92,28 +92,28 @@ const ResourcesPage = () => {
                 description: "Quick relaxation through focused breathing",
                 content: "This simple breathing technique can help calm your nervous system quickly. Find a comfortable position, close your eyes, and follow the guided instructions.",
                 duration: "5 minutes",
-                link: "#"
+                link: "https://www.verywellmind.com/abdominal-breathing-2584115"
               },
               {
                 title: "Body Scan Meditation",
                 description: "Reduce physical tension and anxiety",
                 content: "A body scan meditation helps bring awareness to different parts of your body, releasing tension and promoting relaxation. Perfect for before bed or during a stressful day.",
                 duration: "15 minutes",
-                link: "#"
+                link: "https://www.mindful.org/body-scan-meditation/"
               },
               {
                 title: "Loving-kindness Meditation",
                 description: "Cultivate compassion toward self and others",
                 content: "This meditation focuses on developing feelings of goodwill, kindness, and warmth towards yourself and progressively towards others.",
                 duration: "10 minutes",
-                link: "#"
+                link: "https://www.greatergood.berkeley.edu/article/item/how_to_practice_loving_kindness_meditation"
               },
               {
                 title: "Progressive Muscle Relaxation",
                 description: "Release physical tension systematically",
                 content: "Learn to recognize and release physical tension by systematically tensing and relaxing different muscle groups throughout your body.",
                 duration: "12 minutes",
-                link: "#"
+                link: "https://www.anxietycanada.com/resources/progressive-muscle-relaxation/"
               },
             ].map((item, i) => (
               <Card key={i} className="card-hover">
@@ -135,7 +135,7 @@ const ResourcesPage = () => {
                 </CardContent>
                 <CardFooter>
                   <Button className="w-full" asChild>
-                    <a href={item.link}>
+                    <a href={item.link} target="_blank" rel="noopener noreferrer">
                       Start Exercise
                     </a>
                   </Button>
@@ -154,7 +154,7 @@ const ResourcesPage = () => {
                 type: "Video",
                 duration: "20 minutes",
                 thumbnail: "https://source.unsplash.com/featured/?speech",
-                link: "#"
+                link: "https://www.ted.com/talks/brene_brown_the_power_of_vulnerability"
               },
               {
                 title: "Managing Stress and Anxiety",
@@ -162,7 +162,7 @@ const ResourcesPage = () => {
                 type: "Podcast",
                 duration: "45 minutes",
                 thumbnail: "https://source.unsplash.com/featured/?podcast",
-                link: "#"
+                link: "https://www.psychologytoday.com/us/podcasts/psychology-today-podcast"
               },
               {
                 title: "Mindfulness for Beginners",
@@ -170,7 +170,7 @@ const ResourcesPage = () => {
                 type: "Audio Course",
                 duration: "5 sessions",
                 thumbnail: "https://source.unsplash.com/featured/?meditation",
-                link: "#"
+                link: "https://www.headspace.com/meditation/meditation-for-beginners"
               },
               {
                 title: "Rewiring Negative Thoughts",
@@ -178,7 +178,7 @@ const ResourcesPage = () => {
                 type: "Video Course",
                 duration: "6 videos",
                 thumbnail: "https://source.unsplash.com/featured/?psychology",
-                link: "#"
+                link: "https://www.anxietycanada.com/resources/cbt-strategies/"
               },
               {
                 title: "Sleep Well Tonight",
@@ -186,7 +186,7 @@ const ResourcesPage = () => {
                 type: "Audio",
                 duration: "30 minutes",
                 thumbnail: "https://source.unsplash.com/featured/?sleep",
-                link: "#"
+                link: "https://www.calm.com/sleep"
               },
               {
                 title: "The Happiness Lab",
@@ -194,7 +194,7 @@ const ResourcesPage = () => {
                 type: "Podcast",
                 duration: "Multiple episodes",
                 thumbnail: "https://source.unsplash.com/featured/?happy",
-                link: "#"
+                link: "https://www.happinesslab.fm/"
               },
             ].map((item, i) => (
               <Card key={i} className="overflow-hidden card-hover">
@@ -229,7 +229,7 @@ const ResourcesPage = () => {
                 </CardHeader>
                 <CardFooter>
                   <Button variant="outline" className="w-full" asChild>
-                    <a href={item.link}>
+                    <a href={item.link} target="_blank" rel="noopener noreferrer">
                       Watch Now <ExternalLink className="ml-2 h-4 w-4" />
                     </a>
                   </Button>
@@ -255,13 +255,13 @@ const ResourcesPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg bg-card border border-border">
                     <h3 className="font-semibold text-lg mb-1">National Suicide Prevention Lifeline</h3>
-                    <p className="text-2xl font-bold text-destructive mb-1">1-800-273-8255</p>
-                    <p className="text-sm text-muted-foreground">Available 24/7 in English and Spanish</p>
+                    <p className="text-2xl font-bold text-destructive mb-1">233 244 846 701</p>
+                    <p className="text-sm text-muted-foreground">Available 24/7 in Ghana</p>
                   </div>
                   <div className="p-4 rounded-lg bg-card border border-border">
                     <h3 className="font-semibold text-lg mb-1">Crisis Text Line</h3>
-                    <p className="text-2xl font-bold text-destructive mb-1">Text HOME to 741741</p>
-                    <p className="text-sm text-muted-foreground">Text from anywhere in the USA, anytime</p>
+                    <p className="text-2xl font-bold text-destructive mb-1">Text HOME to 112</p>
+                    <p className="text-sm text-muted-foreground">Text from anywhere in the Ghana, anytime</p>
                   </div>
                 </div>
                 <p className="text-sm">

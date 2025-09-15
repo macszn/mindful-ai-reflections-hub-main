@@ -9,7 +9,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-lg">M</span>
               </div>
               <span className="font-bold text-xl">Mindful</span>
@@ -59,15 +59,15 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="flex items-center space-x-2">
                 <MapPin className="w-5 h-5 text-primary" />
-                <span className="text-sm text-foreground/70">123 Wellness Street, Mindful City</span>
+                <span className="text-sm text-foreground/70">Tema, Community 25</span>
               </li>
               <li className="flex items-center space-x-2">
                 <Phone className="w-5 h-5 text-primary" />
-                <span className="text-sm text-foreground/70">+1 (555) 123-4567</span>
+                <span className="text-sm text-foreground/70">+233 20 818 6633</span>
               </li>
               <li className="flex items-center space-x-2">
                 <Mail className="w-5 h-5 text-primary" />
-                <span className="text-sm text-foreground/70">support@mindfulapp.com</span>
+                <span className="text-sm text-foreground/70">markaddo143@gmail.com</span>
               </li>
             </ul>
           </div>

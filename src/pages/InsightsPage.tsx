@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Lightbulb, TrendingUp, Target } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 // Mock data for the charts
@@ -30,37 +32,93 @@ const InsightsPage = () => {
   const [loading, setLoading] = useState(true);
    const [insights, setInsights] = useState<any>(null);
   
-   useEffect(() => {
-     const userId = JSON.parse(localStorage.getItem('mindful_users') as string).id;
-     if (!userId) return;
+     useEffect(() => {
+    const userData = localStorage.getItem('mindful_users');
+    console.log('User data from localStorage:', userData);
+    
+    if (!userData) {
+      console.log('No user data found in localStorage');
+      return;
+    }
+    
+    const userId = JSON.parse(userData).id;
+    console.log('Extracted userId:', userId);
+    
+    if (!userId) {
+      console.log('No userId found in user data');
+      return;
+    }
+
+          const fetchInsights = async () => {
+        try {
+          const res = await axios.get(`http://localhost:4000/api/insights/${userId}`);
+          
+          if (res.data.error) {
+            console.error('API returned error:', res.data.error);
+            setInsights(null);
+            return;
+          }
+          
+          setInsights(res.data);
+                  console.log('Insights data received:', res.data);
+        console.log('Weekly mood data:', res.data.weeklyMoodData);
+        console.log('Monthly mood data:', res.data.monthlyMoodData);
+        console.log('Personalized insights:', res.data.personalizedInsights);
+        } catch (error) {
+          console.error('Failed to fetch insights:', error);
+          setInsights(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+    fetchInsights();
+  }, []);
   
-     const fetchInsights = async () => {
-       try {
-         const res = await axios.get(`http://localhost:4000/api/insights/${userId}`);
-         setInsights(res.data);
-         console.log(res);
-       } catch (error) {
-         console.error('Failed to fetch insights:', error);
-       } finally {
-         setLoading(false);
-       }
-     };
+     if (loading) {
+    return <div className="text-center py-20 text-muted-foreground">Loading insights...</div>;
+  }
+
+  if (!insights) {
+    return (
+      <div className="container mx-auto max-w-6xl px-4 py-8">
+        <div className="text-center py-20">
+          <h1 className="text-3xl font-bold mb-2">Emotional Insights</h1>
+          <p className="text-muted-foreground mb-4">Unable to load insights data</p>
+          <p className="text-sm text-muted-foreground">Please try refreshing the page or check if you have any journal entries.</p>
+        </div>
+      </div>
+    );
+  }
   
-     fetchInsights();
-   }, []);
-  
-   if (loading) {
-     return <div className="text-center py-20 text-muted-foreground">Loading insights...</div>;
-   }
-  
-   const {
-     weeklyAverageMood,
-     mostFrequentMood,
-     journalEntries,
-     streak,
-     weeklyMoodData,
-     monthlyMoodData
-   } = insights || {};
+     const {
+    weeklyAverageMood,
+    mostFrequentMood,
+    journalEntries,
+    streak,
+    weeklyMoodData,
+    monthlyMoodData,
+    personalizedInsights
+  } = insights || {};
+
+  // Fallback data if backend doesn't provide chart data
+  const fallbackWeeklyData = [
+    { day: 'Mon', value: 3, mood: 'neutral' },
+    { day: 'Tue', value: 3, mood: 'neutral' },
+    { day: 'Wed', value: 3, mood: 'neutral' },
+    { day: 'Thu', value: 3, mood: 'neutral' },
+    { day: 'Fri', value: 3, mood: 'neutral' },
+    { day: 'Sat', value: 3, mood: 'neutral' },
+    { day: 'Sun', value: 3, mood: 'neutral' }
+  ];
+
+  const fallbackMonthlyData = [
+    { name: 'No Data', value: 1 }
+  ];
+
+  // Use backend data if available, otherwise use fallback
+  const chartWeeklyData = weeklyMoodData && weeklyMoodData.length > 0 ? weeklyMoodData : fallbackWeeklyData;
+  const chartMonthlyData = monthlyMoodData && monthlyMoodData.length > 0 ? monthlyMoodData : fallbackMonthlyData;
   
   const COLORS = ['#4CAF50', '#2196F3', '#FFC107', '#9C27B0', '#F44336'];
   return (
@@ -68,6 +126,13 @@ const InsightsPage = () => {
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Emotional Insights</h1>
         <p className="text-muted-foreground">Understand your emotional patterns and get personalized insights</p>
+        {(!insights?.journalEntries?.total || insights.journalEntries.total === 0) && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800">
+              💡 <strong>Tip:</strong> Start journaling to see your mood trends and insights!
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Stats overview */}
@@ -133,6 +198,20 @@ const InsightsPage = () => {
         </TabsList>
         
         <TabsContent value="mood-trends">
+          {(!insights?.journalEntries?.total || insights.journalEntries.total === 0) ? (
+            <div className="text-center py-20">
+              <div className="max-w-md mx-auto">
+                <div className="text-6xl mb-4">📝</div>
+                <h3 className="text-xl font-semibold mb-2">No Journal Entries Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start journaling to see your mood trends and insights. Your first entry will appear here!
+                </p>
+                <Button asChild>
+                  <Link to="/journal">Start Journaling</Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <Card>
               <CardHeader>
@@ -140,25 +219,31 @@ const InsightsPage = () => {
                 <CardDescription>See how your mood has changed over the past week</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyMoodData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis
-                      tickFormatter={(value) => {
-                        const moods = ['', 'Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
-                        return moods[value] || '';
-                      }}
-                    />
-                    <Tooltip 
-                      formatter={(value) => {
-                        const moods = ['', 'Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
-                        return [moods[value as number], 'Mood Level'];
-                      }}
-                    />
-                    <Bar dataKey="value" fill="hsl(var(--primary))" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {chartWeeklyData && chartWeeklyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartWeeklyData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="day" />
+                      <YAxis
+                        tickFormatter={(value) => {
+                          const moods = ['', 'Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
+                          return moods[value] || '';
+                        }}
+                      />
+                      <Tooltip 
+                        formatter={(value) => {
+                          const moods = ['', 'Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
+                          return [moods[value as number], 'Mood Level'];
+                        }}
+                      />
+                      <Bar dataKey="value" fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p>No mood data available for this week. Start journaling to see your mood trends!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
             
@@ -168,109 +253,112 @@ const InsightsPage = () => {
                 <CardDescription>Breakdown of your emotions over the past month</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={monthlyMoodData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {monthlyMoodData?.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {chartMonthlyData && chartMonthlyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartMonthlyData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {chartMonthlyData?.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p>No mood data available for this month. Start journaling to see your mood distribution!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
+          )}
         </TabsContent>
         
         <TabsContent value="insights">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="overflow-hidden">
-              <div className="bg-primary h-1"></div>
-              <CardHeader className="flex flex-row items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Lightbulb className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle>Mood Patterns</CardTitle>
-                  <CardDescription>Based on your journal entries</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p>You've felt anxious 3 days this week—often mentioning work. Consider scheduling short breaks during your workday to practice mindfulness.</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="overflow-hidden">
-              <div className="bg-amber-500 h-1"></div>
-              <CardHeader className="flex flex-row items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-amber-500" />
-                </div>
-                <div>
-                  <CardTitle>Progress Insight</CardTitle>
-                  <CardDescription>Your weekly improvement</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p>Your overall mood has improved by 15% compared to last week. Your journaling consistency is making a difference in your emotional awareness.</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="overflow-hidden md:col-span-2">
-              <div className="bg-teal-500 h-1"></div>
-              <CardHeader className="flex flex-row items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-teal-500/10 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-teal-500" />
-                </div>
-                <div>
-                  <CardTitle>Goal Tracking</CardTitle>
-                  <CardDescription>Progress toward your mental health goals</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Daily Mindfulness</span>
-                      <span>5/7 days</span>
+          {(!personalizedInsights || personalizedInsights.length === 0) ? (
+            <div className="text-center py-20">
+              <div className="max-w-md mx-auto">
+                <div className="text-6xl mb-4">💡</div>
+                <h3 className="text-xl font-semibold mb-2">No Insights Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start journaling to unlock personalized insights based on your mood patterns and journal entries.
+                </p>
+                <Button asChild>
+                  <Link to="/journal">Start Journaling</Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {personalizedInsights.map((insight, index) => (
+                <Card key={index} className={`overflow-hidden ${insight.type === 'goals' ? 'md:col-span-2' : ''}`}>
+                  <div className={`h-1 ${
+                    insight.color === 'primary' ? 'bg-primary' :
+                    insight.color === 'amber' ? 'bg-amber-500' :
+                    insight.color === 'teal' ? 'bg-teal-500' : 'bg-primary'
+                  }`}></div>
+                  <CardHeader className="flex flex-row items-center gap-4">
+                    <div className={`w-10 h-10 rounded-full ${
+                      insight.color === 'primary' ? 'bg-primary/10' :
+                      insight.color === 'amber' ? 'bg-amber-500/10' :
+                      insight.color === 'teal' ? 'bg-teal-500/10' : 'bg-primary/10'
+                    } flex items-center justify-center`}>
+                      {insight.icon === 'Lightbulb' && <Lightbulb className={`w-5 h-5 ${
+                        insight.color === 'primary' ? 'text-primary' :
+                        insight.color === 'amber' ? 'text-amber-500' :
+                        insight.color === 'teal' ? 'text-teal-500' : 'text-primary'
+                      }`} />}
+                      {insight.icon === 'TrendingUp' && <TrendingUp className={`w-5 h-5 ${
+                        insight.color === 'primary' ? 'text-primary' :
+                        insight.color === 'amber' ? 'text-amber-500' :
+                        insight.color === 'teal' ? 'text-teal-500' : 'text-primary'
+                      }`} />}
+                      {insight.icon === 'Target' && <Target className={`w-5 h-5 ${
+                        insight.color === 'primary' ? 'text-primary' :
+                        insight.color === 'amber' ? 'text-amber-500' :
+                        insight.color === 'teal' ? 'text-teal-500' : 'text-primary'
+                      }`} />}
                     </div>
-                    <div className="h-2 bg-secondary rounded-full">
-                      <div className="h-full bg-teal-500 rounded-full" style={{ width: '70%' }}></div>
+                    <div>
+                      <CardTitle>{insight.title}</CardTitle>
+                      <CardDescription>{insight.description}</CardDescription>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Journal Entries</span>
-                      <span>12/15 entries</span>
-                    </div>
-                    <div className="h-2 bg-secondary rounded-full">
-                      <div className="h-full bg-teal-500 rounded-full" style={{ width: '80%' }}></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Positive Reflection</span>
-                      <span>8/10 days</span>
-                    </div>
-                    <div className="h-2 bg-secondary rounded-full">
-                      <div className="h-full bg-teal-500 rounded-full" style={{ width: '80%' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  </CardHeader>
+                  <CardContent>
+                    {insight.type === 'goals' ? (
+                      <div className="space-y-4">
+                        {insight.goals.map((goal, goalIndex) => (
+                          <div key={goalIndex}>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span>{goal.name}</span>
+                              <span>{goal.current}/{goal.target}</span>
+                            </div>
+                            <div className="h-2 bg-secondary rounded-full">
+                              <div 
+                                className="h-full bg-teal-500 rounded-full" 
+                                style={{ width: `${goal.percentage}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p>{insight.content}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
         
         <TabsContent value="recommendations">

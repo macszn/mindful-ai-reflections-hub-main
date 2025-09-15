@@ -1,0 +1,499 @@
+/* Main container */
+.insights-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Header */
+.insights-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.insights-header h1 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #1a1a1a;
+}
+
+.insights-header p {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Loading and error states */
+.loading-container,
+.error-container,
+.no-data-container {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-container h2 {
+  color: #dc3545;
+  margin-bottom: 1rem;
+}
+
+.retry-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 1rem;
+}
+
+.retry-button:hover {
+  background: #0056b3;
+}
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-header h3 {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-header h2 {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.stat-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.stat-content span:first-child {
+  color: #666;
+}
+
+.trend-icon {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.trend-icon.positive {
+  color: #28a745;
+}
+
+.trend-icon.negative {
+  color: #dc3545;
+}
+
+.mood-emoji {
+  font-size: 1.5rem;
+}
+
+/* Tabs */
+.tabs-container {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.tabs-list {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.tab-button.active {
+  background: white;
+  color: #007bff;
+  border-bottom: 2px solid #007bff;
+}
+
+.tab-content {
+  padding: 2rem;
+}
+
+/* Charts grid */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+}
+
+.chart-card {
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.chart-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.chart-header h3 {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #1a1a1a;
+}
+
+.chart-header p {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.chart-content {
+  padding: 1.5rem;
+  min-height: 300px;
+}
+
+/* Mood chart */
+.mood-chart {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  height: 200px;
+  gap: 1rem;
+}
+
+.mood-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.bar-label {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.bar-container {
+  width: 100%;
+  height: 150px;
+  background: #f8f9fa;
+  border-radius: 0.25rem;
+  position: relative;
+  display: flex;
+  align-items: end;
+}
+
+.bar {
+  width: 100%;
+  background: linear-gradient(to top, #007bff, #0056b3);
+  border-radius: 0.25rem;
+  transition: height 0.3s ease;
+}
+
+.bar-value {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+/* Mood distribution */
+.mood-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mood-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+}
+
+.mood-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.mood-name {
+  flex: 1;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.mood-count {
+  font-weight: bold;
+  color: #007bff;
+}
+
+/* Insights grid */
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.insight-card {
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insight-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.insight-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.insight-header.mood-patterns {
+  border-left: 4px solid #007bff;
+}
+
+.insight-header.progress {
+  border-left: 4px solid #ffc107;
+}
+
+.insight-header.goals {
+  border-left: 4px solid #20c997;
+}
+
+.insight-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 50%;
+}
+
+.insight-header h3 {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+  color: #1a1a1a;
+}
+
+.insight-header p {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.insight-content {
+  padding: 1.5rem;
+}
+
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.goal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.goal-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #20c997, #17a2b8);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Recommendations grid */
+.recommendations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.recommendation-card {
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recommendation-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.recommendation-header h3 {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #1a1a1a;
+}
+
+.recommendation-header p {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.recommendation-content p {
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .insights-container {
+    padding: 1rem;
+  }
+  
+  .insights-header h1 {
+    font-size: 2rem;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .insights-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .recommendations-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .tabs-list {
+    flex-direction: column;
+  }
+  
+  .tab-button {
+    border-bottom: 1px solid #e1e5e9;
+  }
+  
+  .tab-button.active {
+    border-bottom: 2px solid #007bff;
+  }
+  
+  .mood-chart {
+    height: 150px;
+  }
+  
+  .bar-container {
+    height: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .insights-header h1 {
+    font-size: 1.75rem;
+  }
+  
+  .stat-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .chart-content {
+    padding: 1rem;
+  }
+  
+  .insight-header,
+  .insight-content {
+    padding: 1rem;
+  }
+} 

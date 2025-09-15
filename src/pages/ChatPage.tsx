@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Loader2, User, Bot } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Send, Loader2, User, Bot, Edit, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import {ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
@@ -58,6 +59,11 @@ const ChatPage = () => {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   // Chat list for sidebar
   const [chatList, setChatList] = useState<Array<{ id: string; title: string; timestamp: Date; lastMessage?: string }>>([]);
+  
+  // Message editing state
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ messageId: number; x: number; y: number } | null>(null);
 
       // Load chats from localStorage when component mounts
   useEffect(() => {
@@ -192,6 +198,7 @@ const ChatPage = () => {
       sender: 'user',
       timestamp: new Date(),
     };
+
     setMessages(prevMessages => [...prevMessages, userMessage]);
     setInputValue('');
     setIsLoading(true);
@@ -264,8 +271,112 @@ const ChatPage = () => {
     }
   };
 
+  // Message editing handlers
+  const handleEditMessage = (messageId: number, content: string) => {
+    setEditingMessageId(messageId);
+    setEditingContent(content);
+    setContextMenu(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingMessageId || !editingContent.trim()) return;
+    
+    setMessages(prevMessages => 
+      prevMessages.map(msg => 
+        msg.id === editingMessageId 
+          ? { ...msg, content: editingContent.trim() }
+          : msg
+      )
+    );
+    
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const handleResendMessage = async (messageId: number) => {
+    const message = messages.find(msg => msg.id === messageId);
+    if (!message || message.sender !== 'user') return;
+    
+    setContextMenu(null);
+    setIsLoading(true);
+    
+    try {
+      const aiResponse = await getAiResponse(message.content);
+      const aiMessage: Message = {
+        id: Date.now(),
+        content: aiResponse,
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessages(prevMessages => [...prevMessages, aiMessage]);
+    } catch (error) {
+      toast.error('Failed to get a response. Please try again.');
+      console.error('Error getting AI response:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Context menu handlers
+  const handleMessageRightClick = (e: React.MouseEvent, messageId: number) => {
+    e.preventDefault();
+    const message = messages.find(msg => msg.id === messageId);
+    if (message && message.sender === 'user') {
+      setContextMenu({ messageId, x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleContextMenuAction = (action: 'edit' | 'resend', messageId: number) => {
+    const message = messages.find(msg => msg.id === messageId);
+    if (!message) return;
+    
+    if (action === 'edit') {
+      handleEditMessage(messageId, message.content);
+    } else if (action === 'resend') {
+      handleResendMessage(messageId);
+    }
+  };
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Rename chat handler
+  const handleRenameChat = (chatId: string, newTitle: string) => {
+    if (!user) return;
+    
+    setChats(prev => {
+      const updated = { ...prev };
+      if (updated[chatId]) {
+        updated[chatId] = {
+          ...updated[chatId],
+          title: newTitle
+        };
+        
+        // Update chat list state and localStorage
+        const chatsList = Object.values(updated).map(chat => ({
+          id: chat.id,
+          title: chat.title,
+          timestamp: chat.timestamp,
+          lastMessage: chat.messages[chat.messages.length - 1]?.content.slice(0, 30)
+        }));
+        setChatList(chatsList);
+        localStorage.setItem(`chats_list_${user.id}`, JSON.stringify(chatsList));
+      }
+      return updated;
+    });
+  };
+
   return (
-    <div className="container mx-auto px-0 py-8 h-[calc(100vh-200px)] min-h-[500px]">
+    <div className="container mx-auto px-0 py-8 h-[calc(100vh-200px)] min-h-[560px]">
       <ResizablePanelGroup direction="horizontal" className="h-full border rounded-lg overflow-hidden">
         {/* Chat History Sidebar */}
         <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
@@ -275,6 +386,7 @@ const ChatPage = () => {
             onNewChat={createNewChat}
             chatList={chatList}
             onDeleteChat={handleDeleteChat}
+            onRenameChat={handleRenameChat}
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -301,6 +413,7 @@ const ChatPage = () => {
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-accent text-accent-foreground glass'
                       }`}
+                      onContextMenu={(e) => handleMessageRightClick(e, message.id)}
                     >
                       <div className="flex items-center space-x-2 mb-1">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center">
@@ -314,10 +427,52 @@ const ChatPage = () => {
                           {message.sender === 'user' ? 'You' : 'Mindful'}
                         </span>
                       </div>
-                      <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                      <div className="text-xs opacity-50 text-right mt-1">
-                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
+                      
+                      {editingMessageId === message.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            className="min-h-[60px] min-w-[600px] resize-none bg-transparent border-none p-0 text-sm focus:ring-0 focus:outline-none"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEdit();
+                                handleResendMessage(message.id);
+                              }
+                              if (e.key === 'Escape') {
+                                handleCancelEdit();
+                              }
+                            }}
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              onClick={handleCancelEdit}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                handleSaveEdit();
+                                handleResendMessage(message.id);
+                              }}
+                              disabled={!editingContent.trim()}
+                            >
+                              Send
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                          <div className="text-xs opacity-50 text-right mt-1">
+                            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -364,6 +519,27 @@ const ChatPage = () => {
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+      
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-popover border border-border rounded-md shadow-lg p-1 min-w-[120px]"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2"
+            onClick={() => handleContextMenuAction('edit', contextMenu.messageId)}
+          >
+            <Edit className="w-3 h-3" />
+            Edit
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
