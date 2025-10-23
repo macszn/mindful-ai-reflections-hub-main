@@ -6,8 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { getRandomQuote } from '@/utils/quotes';
 
-const QUOTE_STORAGE_KEY = 'MentAI_quote_of_the_day';
-const QUOTE_TIMESTAMP_KEY = 'MentAI_quote_timestamp';
+const QUOTE_STORAGE_KEY = 'MoodIntel_quote_of_the_day';
+const QUOTE_TIMESTAMP_KEY = 'MoodIntel_quote_timestamp';
 
 const getStoredQuote = () => {
   const quote = localStorage.getItem(QUOTE_STORAGE_KEY);
@@ -83,7 +83,7 @@ const Index = () => {
                   Your AI companion for mental wellness
                 </h1>
                 <p className="mt-6 text-xl text-muted-foreground max-w-xl">
-                  MentAI combines AI-powered conversations with mood tracking and personalized insights to support your emotional wellbeing.
+                  MoodIntel combines AI-powered conversations with mood tracking and personalized insights to support your emotional wellbeing.
                 </p>
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                   <Link to="/chat">
@@ -117,7 +117,7 @@ const Index = () => {
       <section className="py-16 bg-secondary/50 border-y border-border">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How MentAI Helps You</h2>
+            <h2 className="text-3xl font-bold mb-4">How MoodIntel Helps You</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Our comprehensive approach combines several evidence-based tools to support your mental wellbeing journey.
             </p>
@@ -165,7 +165,7 @@ const Index = () => {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">How It Works</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              MentAI's approach is designed to be simple, effective, and integrated into your daily routine.
+              MoodIntel's approach is designed to be simple, effective, and integrated into your daily routine.
             </p>
           </div>
           
@@ -212,7 +212,7 @@ const Index = () => {
       <section className="py-16 bg-secondary/50 border-y border-border">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Why Choose MentAI</h2>
+            <h2 className="text-3xl font-bold mb-4">Why Choose MoodIntel</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Our platform is designed with your wellbeing and privacy as our highest priorities.
             </p>
@@ -238,7 +238,7 @@ const Index = () => {
               {
                 icon: <Brain className="h-6 w-6 text-primary" />,
                 title: "Evidence-based",
-                description: "Our approach is grounded in cognitive behavioral therapy and MentAIness practices."
+                description: "Our approach is grounded in cognitive behavioral therapy and MoodIntelness practices."
               }
             ].map((benefit, i) => (
               <div key={i} className="flex flex-col items-center text-center p-4">
@@ -281,7 +281,7 @@ const Index = () => {
                 <>
                   <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to start your wellness journey?</h2>
                   <p className="text-muted-foreground mb-6">
-                    Join thousands of users who are improving their mental wellbeing with MentAI's AI-powered support system.
+                    Join thousands of users who are improving their mental wellbeing with MoodIntel's AI-powered support system.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4">
                     <Link to="/register">

@@ -12,7 +12,7 @@ const Footer = () => {
               <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-lg">M</span>
               </div>
-              <span className="font-bold text-xl">MentAI</span>
+              <span className="font-bold text-xl">MoodIntel</span>
             </Link>
             <p className="text-sm text-muted-foreground mt-4">
               Empowering mental wellness through AI-powered conversations, mood tracking, and personalized insights.
@@ -75,7 +75,7 @@ const Footer = () => {
         
         <div className="border-t border-border mt-10 pt-6 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-foreground/60">
-            © {new Date().getFullYear()} MentAI. All rights reserved.
+            © {new Date().getFullYear()} MoodIntel. All rights reserved.
           </p>
         </div>
       </div>
