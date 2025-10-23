@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   // On mount, check if user is stored in localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem('mindful_users');
+    const storedUser = localStorage.getItem('MentAI_users');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setUser(loggedInUser);
-        localStorage.setItem('mindful_users', JSON.stringify(loggedInUser));
+        localStorage.setItem('MentAI_users', JSON.stringify(loggedInUser));
         setIsLoading(false);
         return true;
       }
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setUser(registeredUser);
-        localStorage.setItem('mindful_users', JSON.stringify(registeredUser));
+        localStorage.setItem('MentAI_users', JSON.stringify(registeredUser));
         setIsLoading(false);
         return true;
       }
@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Logout function
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('mindful_users');
+    localStorage.removeItem('MentAI_users');
   };
 
   const value = {

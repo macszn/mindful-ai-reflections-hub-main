@@ -33,7 +33,7 @@ const InsightsPage = () => {
    const [insights, setInsights] = useState<any>(null);
   
      useEffect(() => {
-    const userData = localStorage.getItem('mindful_users');
+    const userData = localStorage.getItem('MentAI_users');
     console.log('User data from localStorage:', userData);
     
     if (!userData) {

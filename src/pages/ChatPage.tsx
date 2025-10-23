@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import {ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import ChatHistorySidebar from '@/components/chat/ChatHistorySidebar'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 
 // Function to get AI responses from the backend
 const getAiResponse = async (message: string): Promise<string> => {
@@ -155,7 +156,7 @@ const ChatPage = () => {
       messages: [
         {
           id: 1,
-          content: "Hi there! I'm Mindful, your AI mental health companion. How are you feeling today?",
+          content: "Hi there! I'm MentAI, your AI mental health companion. How are you feeling today?",
           sender: 'ai',
           timestamp: new Date(),
         }
@@ -394,7 +395,7 @@ const ChatPage = () => {
         <ResizablePanel defaultSize={80}>
           <div className="flex flex-col h-full">
             <div className="bg-card rounded-t-lg p-4 border-b border-border">
-              <h1 className="text-2xl font-bold text-center">Chat with Mindful</h1>
+              <h1 className="text-2xl font-bold text-center">Chat with MentAI</h1>
               <p className="text-muted-foreground text-center text-sm mt-1">
                 I'm here to listen, support, and provide guidance whenever you need it.
               </p>
@@ -424,7 +425,7 @@ const ChatPage = () => {
                           )}
                         </div>
                         <span className="text-xs opacity-70">
-                          {message.sender === 'user' ? 'You' : 'Mindful'}
+                          {message.sender === 'user' ? 'You' : 'MentAI'}
                         </span>
                       </div>
                       
@@ -467,7 +468,14 @@ const ChatPage = () => {
                         </div>
                       ) : (
                         <>
-                          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                          {message.sender === 'ai' ? (
+                            <MarkdownRenderer 
+                              content={message.content} 
+                              className="text-sm"
+                            />
+                          ) : (
+                            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                          )}
                           <div className="text-xs opacity-50 text-right mt-1">
                             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -480,7 +488,7 @@ const ChatPage = () => {
                   <div className="flex justify-start">
                     <div className="flex items-center space-x-2 bg-accent rounded-lg p-3 max-w-[80%] text-accent-foreground glass">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Mindful is typing...</span>
+                      <span className="text-sm">MentAI is typing...</span>
                     </div>
                   </div>
                 )}

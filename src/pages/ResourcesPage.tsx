@@ -30,10 +30,10 @@ const ResourcesPage = () => {
                 link: "https://www.mayoclinic.org/diseases-conditions/anxiety/symptoms-causes/syc-20350961"
               },
               {
-                title: "Mindfulness Basics",
-                description: "An introduction to mindfulness practice",
-                content: "Discover how mindfulness can help you become more aware of your thoughts and feelings, and develop healthier responses to stress.",
-                link: "https://www.mindful.org/what-is-mindfulness/"
+                title: "MentAIness Basics",
+                description: "An introduction to MentAIness practice",
+                content: "Discover how MentAIness can help you become more aware of your thoughts and feelings, and develop healthier responses to stress.",
+                link: "https://www.MentAI.org/what-is-MentAIness/"
               },
               {
                 title: "The Science of Happiness",
@@ -99,7 +99,7 @@ const ResourcesPage = () => {
                 description: "Reduce physical tension and anxiety",
                 content: "A body scan meditation helps bring awareness to different parts of your body, releasing tension and promoting relaxation. Perfect for before bed or during a stressful day.",
                 duration: "15 minutes",
-                link: "https://www.mindful.org/body-scan-meditation/"
+                link: "https://www.MentAI.org/body-scan-meditation/"
               },
               {
                 title: "Loving-kindness Meditation",
@@ -165,7 +165,7 @@ const ResourcesPage = () => {
                 link: "https://www.psychologytoday.com/us/podcasts/psychology-today-podcast"
               },
               {
-                title: "Mindfulness for Beginners",
+                title: "MentAIness for Beginners",
                 description: "Guided meditation series",
                 type: "Audio Course",
                 duration: "5 sessions",
@@ -255,7 +255,7 @@ const ResourcesPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg bg-card border border-border">
                     <h3 className="font-semibold text-lg mb-1">National Suicide Prevention Lifeline</h3>
-                    <p className="text-2xl font-bold text-destructive mb-1">233 244 846 701</p>
+                    <p className="text-2xl font-bold text-destructive mb-1">+233 244 846 701</p>
                     <p className="text-sm text-muted-foreground">Available 24/7 in Ghana</p>
                   </div>
                   <div className="p-4 rounded-lg bg-card border border-border">

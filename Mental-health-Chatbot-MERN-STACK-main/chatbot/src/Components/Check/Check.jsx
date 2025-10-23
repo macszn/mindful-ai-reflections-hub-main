@@ -12,6 +12,65 @@ import cross from './cross_btn.svg'
 
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
+// Markdown renderer component
+const MarkdownRenderer = ({ content }) => {
+  const parseMarkdown = (text) => {
+    // Split into lines to handle list items properly
+    const lines = text.split('\n');
+    const processedLines = lines.map(line => {
+      // Handle list items (bullet points)
+      if (line.match(/^\s*\* /)) {
+        const listContent = line.replace(/^\s*\* /, '');
+        return `<li>${parseInlineMarkdown(listContent)}</li>`;
+      }
+      
+      // Handle numbered lists
+      if (line.match(/^\s*\d+\. /)) {
+        const listContent = line.replace(/^\s*\d+\. /, '');
+        return `<li>${parseInlineMarkdown(listContent)}</li>`;
+      }
+      
+      // Handle headers
+      if (line.match(/^### /)) {
+        const headerContent = line.replace(/^### /, '');
+        return `<h3>${parseInlineMarkdown(headerContent)}</h3>`;
+      }
+      
+      if (line.match(/^## /)) {
+        const headerContent = line.replace(/^## /, '');
+        return `<h2>${parseInlineMarkdown(headerContent)}</h2>`;
+      }
+      
+      if (line.match(/^# /)) {
+        const headerContent = line.replace(/^# /, '');
+        return `<h1>${parseInlineMarkdown(headerContent)}</h1>`;
+      }
+      
+      // Regular paragraph
+      return `<p>${parseInlineMarkdown(line)}</p>`;
+    });
+    
+    return processedLines.join('');
+  };
+
+  const parseInlineMarkdown = (text) => {
+    // Convert **bold** to <strong>
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Convert `code` to <code>
+    text = text.replace(/`(.*?)`/g, '<code>$1</code>');
+    // Convert *italic* to <em> (but not if it's at start of line with space after)
+    text = text.replace(/(?<!^)\*(.*?)\*(?!\s)/g, '<em>$1</em>');
+    return text;
+  };
+
+  return (
+    <div 
+      dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
+      style={{ whiteSpace: 'pre-wrap' }}
+    />
+  );
+};
+
 function Check() {
   const [userInput, setUserInput] = useState('');
   const [showReset, setShowReset] = useState(false);
@@ -120,7 +179,11 @@ function Check() {
         <div className="chat-history">
           {chatHistory.map((item, index) => (
             <div key={index} className={`message ${item.role}`}>
-              {item.message}
+              {item.role === 'bot' ? (
+                <MarkdownRenderer content={item.message} />
+              ) : (
+                item.message
+              )}
             </div>
           ))}
         </div>

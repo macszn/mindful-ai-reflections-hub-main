@@ -53,7 +53,7 @@ const RegisterPage = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
             <CardDescription>
-              Enter your information to create your Mindful account
+              Enter your information to create your MentAI account
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleRegister}>
