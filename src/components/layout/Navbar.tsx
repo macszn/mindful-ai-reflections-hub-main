@@ -23,7 +23,7 @@ const Navbar = () => {
           <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
             <span className="text-white font-bold text-lg">M</span>
           </div>
-          <span className="font-bold text-xl">MoodIntel</span>
+          <span className="font-bold text-xl">MindCare</span>
         </Link>
         
         {/* Desktop Menu */}

@@ -333,7 +333,7 @@ function generatePersonalizedInsights(weeklyEntries, monthlyEntries, allEntries,
         type: 'mood-patterns',
         title: 'Mood Patterns',
         description: 'Based on your journal entries',
-        content: `You've felt anxious ${moodCounts['anxious']} days this week. Consider scheduling short breaks during your workday to practice MoodIntelness.`,
+        content: `You've felt anxious ${moodCounts['anxious']} days this week. Consider scheduling short breaks during your workday to practice MindCareness.`,
         icon: 'Lightbulb',
         color: 'primary'
       });
@@ -390,7 +390,7 @@ function generatePersonalizedInsights(weeklyEntries, monthlyEntries, allEntries,
       title: 'Goal Tracking',
       description: 'Progress toward your mental health goals',
       goals: [
-        { name: 'Daily MoodIntelness', current: weeklyGoal, target: 7, percentage: Math.round((weeklyGoal / 7) * 100) },
+        { name: 'Daily MindCareness', current: weeklyGoal, target: 7, percentage: Math.round((weeklyGoal / 7) * 100) },
         { name: 'Journal Entries', current: weeklyEntries.length, target: 7, percentage: Math.round((weeklyEntries.length / 7) * 100) },
         { name: 'Positive Reflection', current: positiveEntries, target: 5, percentage: Math.round((positiveEntries / 5) * 100) }
       ],

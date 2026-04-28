@@ -53,7 +53,7 @@ const RegisterPage = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
             <CardDescription>
-              Enter your information to create your MoodIntel account
+              Enter your information to create your MindCare account
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleRegister}>

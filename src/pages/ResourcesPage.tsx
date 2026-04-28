@@ -30,10 +30,10 @@ const ResourcesPage = () => {
                 link: "https://www.mayoclinic.org/diseases-conditions/anxiety/symptoms-causes/syc-20350961"
               },
               {
-                title: "MoodIntelness Basics",
-                description: "An introduction to MoodIntelness practice",
-                content: "Discover how MoodIntelness can help you become more aware of your thoughts and feelings, and develop healthier responses to stress.",
-                link: "https://www.MoodIntel.org/what-is-MoodIntelness/"
+                title: "MindCareness Basics",
+                description: "An introduction to MindCareness practice",
+                content: "Discover how MindCareness can help you become more aware of your thoughts and feelings, and develop healthier responses to stress.",
+                link: "https://www.MindCare.org/what-is-MindCareness/"
               },
               {
                 title: "The Science of Happiness",
@@ -99,7 +99,7 @@ const ResourcesPage = () => {
                 description: "Reduce physical tension and anxiety",
                 content: "A body scan meditation helps bring awareness to different parts of your body, releasing tension and promoting relaxation. Perfect for before bed or during a stressful day.",
                 duration: "15 minutes",
-                link: "https://www.MoodIntel.org/body-scan-meditation/"
+                link: "https://www.MindCare.org/body-scan-meditation/"
               },
               {
                 title: "Loving-kindness Meditation",
@@ -165,7 +165,7 @@ const ResourcesPage = () => {
                 link: "https://www.psychologytoday.com/us/podcasts/psychology-today-podcast"
               },
               {
-                title: "MoodIntelness for Beginners",
+                title: "MindCareness for Beginners",
                 description: "Guided meditation series",
                 type: "Audio Course",
                 duration: "5 sessions",

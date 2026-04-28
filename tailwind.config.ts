@@ -55,7 +55,7 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				MoodIntel: {
+				MindCare: {
 					50: '#f5f7fb',
 					100: '#e9eef6',
 					200: '#d8e0ef',

@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   // On mount, check if user is stored in localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem('MoodIntel_users');
+    const storedUser = localStorage.getItem('MindCare_users');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setUser(loggedInUser);
-        localStorage.setItem('MoodIntel_users', JSON.stringify(loggedInUser));
+        localStorage.setItem('MindCare_users', JSON.stringify(loggedInUser));
         setIsLoading(false);
         return true;
       }
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setUser(registeredUser);
-        localStorage.setItem('MoodIntel_users', JSON.stringify(registeredUser));
+        localStorage.setItem('MindCare_users', JSON.stringify(registeredUser));
         setIsLoading(false);
         return true;
       }
@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Logout function
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('MoodIntel_users');
+    localStorage.removeItem('MindCare_users');
   };
 
   const value = {

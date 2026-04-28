@@ -156,7 +156,7 @@ const ChatPage = () => {
       messages: [
         {
           id: 1,
-          content: "Hi there! I'm MoodIntel, your AI mental health companion. How are you feeling today?",
+          content: "Hi there! I'm MindCare, your AI mental health companion. How are you feeling today?",
           sender: 'ai',
           timestamp: new Date(),
         }
@@ -395,7 +395,7 @@ const ChatPage = () => {
         <ResizablePanel defaultSize={80}>
           <div className="flex flex-col h-full">
             <div className="bg-card rounded-t-lg p-4 border-b border-border">
-              <h1 className="text-2xl font-bold text-center">Chat with MoodIntel</h1>
+              <h1 className="text-2xl font-bold text-center">Chat with MindCare</h1>
               <p className="text-muted-foreground text-center text-sm mt-1">
                 I'm here to listen, support, and provide guidance whenever you need it.
               </p>
@@ -425,7 +425,7 @@ const ChatPage = () => {
                           )}
                         </div>
                         <span className="text-xs opacity-70">
-                          {message.sender === 'user' ? 'You' : 'MoodIntel'}
+                          {message.sender === 'user' ? 'You' : 'MindCare'}
                         </span>
                       </div>
                       
@@ -488,7 +488,7 @@ const ChatPage = () => {
                   <div className="flex justify-start">
                     <div className="flex items-center space-x-2 bg-accent rounded-lg p-3 max-w-[80%] text-accent-foreground glass">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">MoodIntel is typing...</span>
+                      <span className="text-sm">MindCare is typing...</span>
                     </div>
                   </div>
                 )}
