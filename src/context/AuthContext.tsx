@@ -1,5 +1,7 @@
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 type User = {
   id: string;
@@ -7,10 +9,14 @@ type User = {
   email: string;
 };
 
+export type RegisterOutcome =
+  | { ok: true; needsVerification: boolean }
+  | { ok: false; message: string };
+
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<RegisterOutcome>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -28,89 +34,120 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // On mount, check if user is stored in localStorage
+
   useEffect(() => {
-    const storedUser = localStorage.getItem('MindCare_users');
+    const storedUser = localStorage.getItem('Mindful_users');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
     setIsLoading(false);
   }, []);
 
-  // Login function
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
+
     try {
-      const response = await axios.post('http://localhost:4000/login', {
+      const response = await axios.post(`${API_BASE}/login`, {
         email,
-        password
+        password,
       });
 
       const data = response.data;
-      
+
       if (data.success) {
         const loggedInUser = {
           id: data.user._id,
           name: data.user.name,
-          email: data.user.email
+          email: data.user.email,
         };
-        
+
         setUser(loggedInUser);
-        localStorage.setItem('MindCare_users', JSON.stringify(loggedInUser));
+        localStorage.setItem('Mindful_users', JSON.stringify(loggedInUser));
         setIsLoading(false);
         return true;
       }
-      
+
       setIsLoading(false);
       return false;
     } catch (error) {
       setIsLoading(false);
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        const body = error.response.data as { error?: string };
+        throw new Error(body?.error || 'Please verify your email before signing in.');
+      }
       return false;
     }
   };
 
-  // Register function
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string): Promise<RegisterOutcome> => {
     setIsLoading(true);
-    
+
     try {
-      const response = await axios.post('http://localhost:4000/signup', { 
+      const response = await axios.post(`${API_BASE}/signup`, {
         name,
         email,
-        password
+        password,
       });
 
       const data = response.data;
-      console.log('Registration response:', data);
 
-      if (data.success) {
-        const registeredUser = {
-          id: data.user._id,
-          name: data.user.name,
-          email: data.user.email
-        };
-        
-        setUser(registeredUser);
-        localStorage.setItem('MindCare_users', JSON.stringify(registeredUser));
+      if (!data?.success) {
         setIsLoading(false);
-        return true;
+        return {
+          ok: false,
+          message: data?.errors || data?.error || 'Registration failed',
+        };
       }
-      
+
+      if (data.requiresVerification) {
+        const trimmed = email.trim();
+        if (trimmed) sessionStorage.setItem('pendingVerificationEmail', trimmed);
+        if (typeof data.verificationLink === 'string' && data.verificationLink) {
+          sessionStorage.setItem('devVerificationLink', data.verificationLink);
+        } else {
+          sessionStorage.removeItem('devVerificationLink');
+        }
+        setIsLoading(false);
+        return { ok: true, needsVerification: true };
+      }
+
+      const u = data.user as { _id?: string; name?: string; email?: string } | undefined;
+      if (u?._id) {
+        const registeredUser = {
+          id: u._id,
+          name: u.name ?? '',
+          email: u.email ?? '',
+        };
+        setUser(registeredUser);
+        localStorage.setItem('Mindful_users', JSON.stringify(registeredUser));
+      }
+
       setIsLoading(false);
-      return false;
+      return { ok: true, needsVerification: false };
     } catch (error) {
       setIsLoading(false);
-      return false;
+      const ax = error as AxiosError<{ errors?: string; error?: string }>;
+      if (axios.isAxiosError(ax) && ax.response?.data) {
+        const d = ax.response.data;
+        const msg = d.errors || d.error || ax.message;
+        return { ok: false, message: String(msg) };
+      }
+      if (axios.isAxiosError(ax) && ax.code === 'ERR_NETWORK') {
+        return {
+          ok: false,
+          message: 'Cannot reach the server. Start the backend on port 4000 and try again.',
+        };
+      }
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Registration failed',
+      };
     }
   };
-    
 
-  // Logout function
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('MindCare_users');
+    localStorage.removeItem('Mindful_users');
   };
 
   const value = {
@@ -118,7 +155,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     login,
     register,
     logout,
-    isLoading
+    isLoading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

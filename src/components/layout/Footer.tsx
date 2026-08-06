@@ -1,6 +1,6 @@
 
 import { Link } from 'react-router-dom';
-import { Heart, Mail, Phone, MapPin } from 'lucide-react';
+import { Heart, Mail, Phone, MapPin, Bot } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -10,9 +10,9 @@ const Footer = () => {
           <div className="space-y-4">
             <Link to="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">M</span>
+                <Bot className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-xl">MindCare</span>
+              <span className="font-bold text-xl">Mindful</span>
             </Link>
             <p className="text-sm text-muted-foreground mt-4">
               Empowering mental wellness through AI-powered conversations, mood tracking, and personalized insights.
@@ -75,7 +75,7 @@ const Footer = () => {
         
         <div className="border-t border-border mt-10 pt-6 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-foreground/60">
-            © {new Date().getFullYear()} MindCare. All rights reserved.
+            © {new Date().getFullYear()} Mindful. All rights reserved.
           </p>
         </div>
       </div>

@@ -7,18 +7,6 @@
   overflow: hidden;
 }
 
-.booking{
-  align-items: center;
-  /* margin: 300px 100px 100px 80px; */
-  position: relative;  
-    left: 68.5%;
-    bottom: 48%;
-}
-.booking img{
- width: 220px;
- border-radius: 180px;
-
-}
 
 .chat-container {
   border-radius: 10px;
@@ -178,11 +166,6 @@
   button.submit-btn:hover {
     background-color: #d4247c;
     
-  }
-
-  button.booking-btn:hover {
-    background-color: #fcc45c;
-    border-radius: 20px;
   }
 
 /* Markdown formatting styles */

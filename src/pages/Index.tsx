@@ -1,13 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Brain, BarChart4, BookOpen, MessageSquare, ArrowRight, Shield, Clock, Zap } from 'lucide-react';
+import { Brain, ArrowRight, Shield, Clock, Zap, MessageSquare, BookOpen, BarChart4 } from 'lucide-react';
+import guidanceImg from '@/assets/guidance.jpg';
+import journalImg from '@/assets/journal.jpg';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { getRandomQuote } from '@/utils/quotes';
 
-const QUOTE_STORAGE_KEY = 'MindCare_quote_of_the_day';
-const QUOTE_TIMESTAMP_KEY = 'MindCare_quote_timestamp';
+const QUOTE_STORAGE_KEY = 'Mindful_quote_of_the_day';
+const QUOTE_TIMESTAMP_KEY = 'Mindful_quote_timestamp';
 
 const getStoredQuote = () => {
   const quote = localStorage.getItem(QUOTE_STORAGE_KEY);
@@ -23,10 +25,37 @@ const setStoredQuote = (quote: { text: string; author: string }) => {
   localStorage.setItem(QUOTE_TIMESTAMP_KEY, Date.now().toString());
 };
 
+const FEATURES = [
+  {
+    image: guidanceImg,
+    alt: 'Supportive conversation between two people',
+    title: 'Guidance That Helps',
+    description:
+      'Get empathetic, practical advice for relationships, conflict, anxiety, and life decisions — with clear steps you can try today.',
+    link: '/chat',
+  },
+  {
+    image: journalImg,
+    alt: 'Person writing in a journal',
+    title: 'Mood Journal',
+    description:
+      'Track how you feel over time, spot patterns, and build self-awareness alongside your conversations.',
+    link: '/journal',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
+    alt: 'Wellness analytics dashboard on a screen',
+    title: 'Emotional Insights',
+    description:
+      'Weekly reports, mood trends, and personalized recommendations based on your journal and activity.',
+    link: '/insights',
+  },
+];
+
 const Index = () => {
   const { user } = useAuth();
   const [quote, setQuote] = useState({ text: '', author: '' });
-  
+
   useEffect(() => {
     if (user) {
       const stored = getStoredQuote();
@@ -83,7 +112,7 @@ const Index = () => {
                   Your AI companion for mental wellness
                 </h1>
                 <p className="mt-6 text-xl text-muted-foreground max-w-xl">
-                  MindCare combines AI-powered conversations with mood tracking and personalized insights to support your emotional wellbeing.
+                  Mindful helps you work through real-life challenges — relationships, stress, and tough decisions — with supportive guidance and tools to track your wellbeing.
                 </p>
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                   <Link to="/chat">
@@ -112,139 +141,82 @@ const Index = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Features Section */}
       <section className="py-16 bg-secondary/50 border-y border-border">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How MindCare Helps You</h2>
+            <h2 className="text-3xl font-bold mb-4">How Mindful Helps You</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Our comprehensive approach combines several evidence-based tools to support your mental wellbeing journey.
+              Practical support for the moments that matter — grounded in empathy, clarity, and evidence-informed wellbeing tools.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <MessageSquare className="h-8 w-8 text-primary" />,
-                title: "AI Conversations",
-                description: "Chat with our empathetic AI assistant who listens without judgment and provides supportive guidance.",
-                link: "/chat"
-              },
-              {
-                icon: <BookOpen className="h-8 w-8 text-primary" />,
-                title: "Mood Journal",
-                description: "Track your emotions daily with our interactive journal to identify patterns and triggers.",
-                link: "/journal"
-              },
-              {
-                icon: <BarChart4 className="h-8 w-8 text-primary" />,
-                title: "Emotional Insights",
-                description: "Receive personalized analytics and suggestions based on your mood patterns and journal entries.",
-                link: "/insights"
-              },
-            ].map((feature, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition-all card-hover">
-                <div className="mb-4 p-3 rounded-full bg-primary/10 inline-block">
-                  {feature.icon}
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all card-hover flex flex-col"
+              >
+                <div className="aspect-[16/10] overflow-hidden">
+                  <img
+                    src={feature.image}
+                    alt={feature.alt}
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                    loading="lazy"
+                  />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground mb-4">{feature.description}</p>
-                <Link to={feature.link} className="text-primary flex items-center font-medium hover:underline">
-                  Explore <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
+                <div className="p-6 flex flex-col flex-1">
+                  <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                  <p className="text-muted-foreground mb-4 flex-1">{feature.description}</p>
+                  <Link
+                    to={feature.link}
+                    className="text-primary flex items-center font-medium hover:underline mt-auto"
+                  >
+                    Explore <ArrowRight className="ml-1 h-4 w-4" />
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
-      
-      {/* How it Works Section */}
-      <section className="py-16 px-4">
-        <div className="container-custom">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How It Works</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              MindCare's approach is designed to be simple, effective, and integrated into your daily routine.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {[
-              {
-                number: "01",
-                title: "Chat Daily",
-                description: "Have regular conversations with our AI to express your thoughts, feelings, and concerns in a safe space.",
-                icon: <MessageSquare className="h-6 w-6" />
-              },
-              {
-                number: "02",
-                title: "Track Your Moods",
-                description: "Log your emotions in the journal with context to create a detailed record of your mental health journey.",
-                icon: <BookOpen className="h-6 w-6" />
-              },
-              {
-                number: "03",
-                title: "Gain Insights",
-                description: "Review your personalized analytics and receive actionable recommendations to improve your wellbeing.",
-                icon: <BarChart4 className="h-6 w-6" />
-              }
-            ].map((step, i) => (
-              <div key={i} className="flex flex-col items-center text-center p-6">
-                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xl mb-4">
-                  {step.number}
-                </div>
-                <div className="flex items-center gap-2 mb-3">
-                  {step.icon}
-                  <h3 className="text-xl font-semibold">{step.title}</h3>
-                </div>
-                <p className="text-muted-foreground">{step.description}</p>
-                {i < 2 && (
-                  <div className="hidden lg:block mt-8 border-t border-dashed border-border w-full"></div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      
+
       {/* Benefits Section */}
       <section className="py-16 bg-secondary/50 border-y border-border">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Why Choose MindCare</h2>
+            <h2 className="text-3xl font-bold mb-4">Why Choose Mindful</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Our platform is designed with your wellbeing and privacy as our highest priorities.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               {
                 icon: <Shield className="h-6 w-6 text-primary" />,
-                title: "Privacy-focused",
-                description: "Your data is encrypted and handled with the utmost care and confidentiality."
+                title: 'Privacy-focused',
+                description: 'Your data is encrypted and handled with the utmost care and confidentiality.',
               },
               {
                 icon: <Clock className="h-6 w-6 text-primary" />,
-                title: "Always Available",
-                description: "Access support any time of day, whenever you need someone to talk to."
+                title: 'Always Available',
+                description: 'Access support any time of day, whenever you need someone to talk to.',
               },
               {
                 icon: <Zap className="h-6 w-6 text-primary" />,
-                title: "Personalized",
-                description: "Receive customized insights and recommendations tailored to your unique needs."
+                title: 'Action-oriented',
+                description: 'Get concrete ideas and next steps — not just sympathy — for what you are facing.',
               },
               {
                 icon: <Brain className="h-6 w-6 text-primary" />,
-                title: "Evidence-based",
-                description: "Our approach is grounded in cognitive behavioral therapy and MindCareness practices."
-              }
-            ].map((benefit, i) => (
-              <div key={i} className="flex flex-col items-center text-center p-4">
-                <div className="p-3 rounded-full bg-primary/10 mb-4">
-                  {benefit.icon}
-                </div>
+                title: 'Evidence-based',
+                description: 'Grounded in cognitive behavioral therapy and mindfulness practices.',
+              },
+            ].map((benefit) => (
+              <div key={benefit.title} className="flex flex-col items-center text-center p-4">
+                <div className="p-3 rounded-full bg-primary/10 mb-4">{benefit.icon}</div>
                 <h3 className="text-lg font-semibold mb-2">{benefit.title}</h3>
                 <p className="text-sm text-muted-foreground">{benefit.description}</p>
               </div>
@@ -252,8 +224,8 @@ const Index = () => {
           </div>
         </div>
       </section>
-      
-      {/* CTA Section - show different CTAs based on login status */}
+
+      {/* CTA Section */}
       <section className="py-16 px-4">
         <div className="container-custom">
           <div className="bg-card border border-border rounded-xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -281,7 +253,7 @@ const Index = () => {
                 <>
                   <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to start your wellness journey?</h2>
                   <p className="text-muted-foreground mb-6">
-                    Join thousands of users who are improving their mental wellbeing with MindCare's AI-powered support system.
+                    Join users improving their mental wellbeing with Mindful&apos;s supportive guidance and tracking tools.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4">
                     <Link to="/register">

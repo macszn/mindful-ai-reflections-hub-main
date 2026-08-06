@@ -9,31 +9,55 @@ import {ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/component
 import ChatHistorySidebar from '@/components/chat/ChatHistorySidebar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
+import { CrisisSupportBanner, type RiskInfo } from '@/components/chat/CrisisSupportBanner';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+type ChatApiResponse = {
+  response: string;
+  risk?: RiskInfo;
+};
+
+type ConversationTurn = {
+  sender: 'user' | 'ai';
+  content: string;
+};
 
 // Function to get AI responses from the backend
-const getAiResponse = async (message: string): Promise<string> => {
+const getAiResponse = async (
+  message: string,
+  userId?: string,
+  conversationHistory: ConversationTurn[] = []
+): Promise<ChatApiResponse> => {
   try {
-    const response = await fetch('http://localhost:4000/chat', {
+    const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-        userInput: message 
+      body: JSON.stringify({
+        userInput: message,
+        userId: userId || undefined,
+        conversationHistory,
       }),
     });
-    
+
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.error || 'Failed to get AI response');
     }
-    
-    return data.response;
+
+    return {
+      response: data.response,
+      risk: data.risk,
+    };
   } catch (error) {
     console.error('Error getting AI response:', error);
-    return "Sorry, I'm having trouble connecting to my brain right now. Please try again later.";
-      }
+    return {
+      response: "Sorry, I'm having trouble connecting to my brain right now. Please try again later.",
+    };
+  }
 };
 
 type Message = {
@@ -65,6 +89,8 @@ const ChatPage = () => {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [contextMenu, setContextMenu] = useState<{ messageId: number; x: number; y: number } | null>(null);
+  const [activeRisk, setActiveRisk] = useState<RiskInfo | null>(null);
+  const [crisisBannerDismissed, setCrisisBannerDismissed] = useState(false);
 
       // Load chats from localStorage when component mounts
   useEffect(() => {
@@ -156,7 +182,7 @@ const ChatPage = () => {
       messages: [
         {
           id: 1,
-          content: "Hi there! I'm MindCare, your AI mental health companion. How are you feeling today?",
+          content: "Hi there! I'm Mindful. Tell me what's going on — relationships, stress, habits, or anything on your mind — and we'll work through practical next steps together.",
           sender: 'ai',
           timestamp: new Date(),
         }
@@ -203,8 +229,22 @@ const ChatPage = () => {
     setMessages(prevMessages => [...prevMessages, userMessage]);
     setInputValue('');
     setIsLoading(true);
+    const messageText = inputValue;
+    const historyForApi: ConversationTurn[] = messages
+      .filter((m) => m.sender === 'user' || m.sender === 'ai')
+      .slice(-12)
+      .map((m) => ({ sender: m.sender, content: m.content }));
+
     try {
-      const aiResponse = await getAiResponse(inputValue);
+      const { response: aiResponse, risk } = await getAiResponse(
+        messageText,
+        user?.id,
+        historyForApi
+      );
+      if (risk?.requiresCrisisSupport) {
+        setActiveRisk(risk);
+        setCrisisBannerDismissed(false);
+      }
       const aiMessage: Message = {
         id: messages.length + 2,
         content: aiResponse,
@@ -310,7 +350,7 @@ const ChatPage = () => {
       const aiResponse = await getAiResponse(message.content);
       const aiMessage: Message = {
         id: Date.now(),
-        content: aiResponse,
+        content: aiResponse.response,
         sender: 'ai',
         timestamp: new Date(),
       };
@@ -395,11 +435,19 @@ const ChatPage = () => {
         <ResizablePanel defaultSize={80}>
           <div className="flex flex-col h-full">
             <div className="bg-card rounded-t-lg p-4 border-b border-border">
-              <h1 className="text-2xl font-bold text-center">Chat with MindCare</h1>
+              <h1 className="text-2xl font-bold text-center">Chat with Mindful</h1>
               <p className="text-muted-foreground text-center text-sm mt-1">
-                I'm here to listen, support, and provide guidance whenever you need it.
+                Practical guidance for relationships, stress, and everyday challenges — with empathy and actionable ideas.
               </p>
             </div>
+            {activeRisk?.requiresCrisisSupport && !crisisBannerDismissed && (
+              <div className="px-4 pt-3">
+                <CrisisSupportBanner
+                  risk={activeRisk}
+                  onDismiss={() => setCrisisBannerDismissed(true)}
+                />
+              </div>
+            )}
             {/* Chat Messages */}
             <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-secondary/30">
               <div className="space-y-4">
@@ -425,7 +473,7 @@ const ChatPage = () => {
                           )}
                         </div>
                         <span className="text-xs opacity-70">
-                          {message.sender === 'user' ? 'You' : 'MindCare'}
+                          {message.sender === 'user' ? 'You' : 'Mindful'}
                         </span>
                       </div>
                       
@@ -488,7 +536,7 @@ const ChatPage = () => {
                   <div className="flex justify-start">
                     <div className="flex items-center space-x-2 bg-accent rounded-lg p-3 max-w-[80%] text-accent-foreground glass">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">MindCare is typing...</span>
+                      <span className="text-sm">Mindful is typing...</span>
                     </div>
                   </div>
                 )}

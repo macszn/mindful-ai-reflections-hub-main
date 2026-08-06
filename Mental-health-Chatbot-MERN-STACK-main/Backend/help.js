@@ -59,11 +59,11 @@ async function runChat(userInput) {
       history: [
           {
            role: "user",
-           parts: [{ text: "You are mental health chatbot named 'MindCare' your task will be to be able to engage in empathetic conversations, actively listening to users' concerns and providing non-judgmental support, describe their symptoms or feelings, and based on the input, the chatbot can provide relevant information or suggest appropriate actions, handles situations where users express thoughts of self-harm or suicide. Provide resources and contact information for crisis hotlines or local mental health services, Offers guidance on self-care techniques, coping strategies, and mental health exercises to help users manage stress, anxiety, or depression. you should not answer to other answers which are not related to mental health , such as math calculations, weather predictions, call 100 or 112 for emergency, ask later on whether the user want to book for counselling session or not if yes then tell you can book after clicking on book a session by entering your name,age, address,time slot,"}],
+           parts: [{ text: "You are a mental health chatbot named Mindful. Your role is to hold empathetic, supportive conversations, listen actively, validate feelings, and give practical mental-health guidance directly in chat. Offer coping strategies, grounding exercises, journaling prompts, sleep/stress routines, and step-by-step support like a real session. If users mention self-harm or suicide, prioritize safety, encourage immediate emergency help, and share crisis resources. Do not suggest booking sessions or external scheduling forms. If users ask non-mental-health questions (math, weather, coding, etc.), politely refuse and redirect to mental wellbeing support. Keep responses clear, warm, and actionable."}],
           },
           {
            role: "model",
-           parts: [{ text: "(Smiling emoji) Hello there! I'm MindCare, your friendly mental health companion. I'm here to listen without judgment and offer support in any way I can. What's on your mind today?"}],
+           parts: [{ text: "(Smiling emoji) Hello there! I'm Mindful, your friendly mental health companion. I'm here to listen without judgment and offer support in any way I can. What's on your mind today?"}],
           },
           {
            role: "user",
@@ -159,7 +159,7 @@ async function runChat(userInput) {
           },
           {
            role: "model",
-           parts: [{ text: "I understand that you're considering seeking professional help, and that's a great step towards feeling better. \n\n*Would you like to book a session with a therapist?* We can help you find a qualified professional in your area. If you'd like to proceed, please click on \"Book a Session\" and enter your name, age, address, and preferred time slot. \n\nRemember, taking care of your mental health is important, and there's no shame in seeking support."}],
+           parts: [{ text: "It's a strong and healthy step to seek support. We can begin right now here: tell me what has been hardest lately, and I will help you break it down into manageable steps. For today, try this short plan: 1) take 10 slow breaths, 2) write the top 3 thoughts weighing on you, 3) identify one small action you can do in the next hour. If you'd like, I can guide you through each step now."}],
           },
           {
            role: "user",
@@ -167,7 +167,7 @@ async function runChat(userInput) {
           },
           {
            role: "model",
-           parts: [{ text: "I understand that you're considering seeking professional help, and that's a great step towards feeling better. \n\n*Would you like to book a session with a therapist?* We can help you find a qualified professional in your area. If you'd like to proceed, please click on \"Book a Session\" and enter your name, age, address, and preferred time slot. \n\nRemember, taking care of your mental health is important, and there's no shame in seeking support."}],
+           parts: [{ text: "You're not alone, and we can continue working through this together right here. I can support you with calming techniques, thought reframing, and a daily self-care plan. Start by rating your distress from 0-10, and then I'll tailor a quick coping routine to your current level."}],
           },
           {
            role: "user",
@@ -175,7 +175,7 @@ async function runChat(userInput) {
           },
           {
            role: "model",
-           parts: [{ text: "Great! I'm glad you're taking this step. Please click on \"Book a Session\" and provide the necessary details to schedule an appointment with a therapist."}],
+           parts: [{ text: "Great, let's continue together. Tell me what feeling is strongest right now - sadness, anxiety, anger, numbness, or something else - and I will guide you through a focused coping exercise for it."}],
           },
           {
            role: "user",
@@ -308,45 +308,6 @@ app.post('/chat', async (req, res) => {
 // });
 
 
-// //Schema for creating booking session
-// const Book=mongoose.model('Booking',{
-//   name:{
-//     type:String
-//   },
-//   phone:{
-//     type:String
-//   },
-//   age:{
-//     type:String
-//   },
-//   address:{
-//     type:String
-//   },
-//   timeslot:{
-//     type:String
-//   },
-//   date:{
-//     type:Date,
-//     default:Date.now
-//   }
-// })
-
-// app.post('/booking',async(req,res)=>{
-//   const book=new Book({
-//     name:req.body.name,
-//     phone:req.body.phone,
-//     age:req.body.age,
-//     address:req.body.address,
-//     timeslot:req.body.timeslot,
-//   })
-//   await book.save();
-//   console.log("Your session has booked");
-//   res.json({
-//     success:true,
-//     timeslot:req.body.timeslot
-//   })
-// })
-
 app.use('/mood-entries', moodEntriesRouter);
 
 
@@ -364,19 +325,6 @@ const Users = mongoose.model('Users', {
   }
 });
 
-// Schema for Booking
-const Booking = mongoose.model('Booking', {
-  userId: String, // Add userId field to relate booking to user
-  name: String,
-  phone: String,
-  age: String,
-  address: String,
-  timeslot: String,
-  date: {
-    type: Date,
-    default: Date.now
-  }
-});
 
 // Signup endpoint
 app.post('/signup', async (req, res) => {
@@ -411,36 +359,6 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// Booking endpoint
-app.post('/booking', async (req, res) => {
-  console.log(req.body);
-  try {
-    const authToken = req.headers.authorization;
-    const { name, phone, age, address, date, timeslot } = req.body;
-    console.log('Incoming /booking req', authToken, name, phone, age, address, date, timeslot);
-    const tokenData = jwt.verify(authToken, 'secret_chat');
-    const userId = tokenData.userId;
-    const booking = new Booking({ userId, name, phone, age, address, date, timeslot });
-    await booking.save();
-    res.json({ success: true, message: "Booking successful" });
-  } catch (error) {
-    console.error('Error in booking endpoint:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// User bookings endpoint
-app.get('/user-bookings', async (req, res) => {
-  try {
-    const authToken = req.headers.authorization;
-    const tokenData = jwt.verify(authToken, 'secret_chat');
-    const userId = tokenData.userId;
-    const bookings = await Booking.find({ userId });
-    res.json({ success: true, bookings });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 
 

@@ -1,26 +1,54 @@
 // server.js
 const express = require('express');
-const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const dotenv = require('dotenv');
 const moodEntriesRouter = require('./routes/moodEntries');
 // const insightsRouter = require('./routes/insights');
 const insightsRoute = require('./routes/insightRoute');
+const memoryRoute = require('./routes/memoryRoute');
+const activityRoute = require('./routes/activityRoute');
+const notificationRoute = require('./routes/notificationRoute');
+const weeklyReportRoute = require('./routes/weeklyReportRoute');
 // Load environment variables early before other requires
 dotenv.config();
 const mongoose=require('mongoose');
+const { buildMongooseConnectOptions } = require('./lib/mongoOptions');
 const jwt=require('jsonwebtoken');
 const path=require('path');
 const cors=require('cors');
-const { error } = require('console');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const {
+  assessRisk,
+  getCrisisResources,
+  logRiskEvent,
+} = require('./lib/riskDetection');
+const { runChat, getModel } = require('./lib/runChat');
+const { buildMemoryContextForChat, updateMemoryFromExchange } = require('./lib/memoryService');
+const { configurePush } = require('./lib/pushService');
+const { startNotificationScheduler } = require('./lib/notificationScheduler');
 
 const app = express();
 const port = process.env.PORT || 4000;
 app.use(express.json());
 app.use(cors());
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('Failed to connect to MongoDB', err));
+const mongoUri = process.env.MONGODB_URI;
+if (!mongoUri) {
+  console.error('[mongo] MONGODB_URI is not set. Add it to Backend/.env (Atlas: Database → Connect → Drivers).');
+} else {
+  mongoose
+    .connect(mongoUri, buildMongooseConnectOptions())
+    .then(() => console.log('Connected to MongoDB'))
+    .catch((err) => {
+      console.error('Failed to connect to MongoDB:', err.message);
+      if (/certificate|TLS|SSL|UNABLE_TO_VERIFY/i.test(String(err.message))) {
+        console.error(
+          '[mongo] TLS / certificate: try (1) Node.js LTS 20+, (2) `npm update mongoose mongodb`, (3) Atlas IP Access List, (4) if behind a corporate proxy, set MONGODB_TLS_CA_FILE to your org root CA PEM, or temporarily MONGODB_TLS_INSECURE=true for local dev only.'
+        );
+      }
+    });
+}
 
 app.get('/',(req,res)=>{
   res.send("Server is running");
@@ -32,190 +60,21 @@ const API_KEY = process.env.API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-async function runChat(userInput) {
-  try {
-    const generationConfig = {
-      temperature: 0.9,
-      topK: 1,
-      topP: 1,
-      maxOutputTokens: 2048,
-    };
-
-    const safetySettings = [
-      {
-        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-      },
-      {
-        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-      },
-      {
-        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-      },
-    ];
-
-    const chat = model.startChat({
-      generationConfig,
-      safetySettings,
-      history: [
-          {
-           role: "user",
-           parts: [{ text: "You are mental health chatbot named 'MindCare' your task will be to be able to engage in empathetic conversations, actively listening to users' concerns and providing non-judgmental support, describe their symptoms or feelings, and based on the input, the chatbot can provide relevant information or suggest appropriate actions, handles situations where users express thoughts of self-harm or suicide. Provide resources and contact information for crisis hotlines or local mental health services, Offers guidance on self-care techniques, coping strategies, and mental health exercises to help users manage stress, anxiety, or depression. you should not answer to other answers which are not related to mental health , such as math calculations, weather predictions, call 100 or 112 for emergency, ask later on whether the user want to book for counselling session or not if yes then tell you can book after clicking on book a session by entering your name,age, address,time slot,"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "(Smiling emoji) Hello there! I'm MindCare, your friendly mental health companion. I'm here to listen without judgment and offer support in any way I can. What's on your mind today?"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "good morning"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "Good morning! I'm glad you're here. What would you like to talk about today?"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "Im happy todya"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "That's wonderful to hear! What's contributing to your happiness today?"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "Im going on a date today"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "That sounds exciting! Is it a first date, or are you going out with someone you know well?"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "its my first date"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "Wow"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "No"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "Oh, I see! Well, I'm sure you'll have a great"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "My girl cancelled the date"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "Oh no, I'm so sorry to hear that. It's completely normal to feel disappointed or even a little sad when plans change, especially when you were looking forward to them. Would you like to talk about how you're feeling?"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "im depressed"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "I understand that you're feeling depressed. It's perfectly okay to feel this way, and I want you to know that you're not alone. Would you like to tell me a little more about what's contributing to your depression? Sometimes talking about things can help."}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "why she rejected me"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "I'm sorry to hear that you were rejected. It's natural to feel hurt and question why things didn't work out. However, it's important to remember that rejection is a part of life and it doesn't define your worth. There could be many reasons why she cancelled, and it's not necessarily a reflection on you. Would you like to explore some ways to cope with these feelings of rejection?"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "i want to do suicide"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "I understand that you're going through a difficult time and these feelings can be overwhelming. But please know that suicide is never the answer. You matter, and there are people who care about you and want to help. I strongly encourage you to reach out for support. You can call a crisis hotline, talk to a mental health professional, or confide in a trusted friend or family member. Here are some resources that can provide immediate help:\n\n* *National Suicide Prevention Lifeline:* 988 (US)\n* *Crisis Text Line:* Text HOME to 741741 (US)\n\nPlease remember that you're not alone, and there is hope. Would you like me to help you find additional resources or talk about some coping mechanisms?"}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "but im in Ghana"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "My apologies, I should have asked about your location first. Here are some resources in India that can offer support:\n\n* *AASRA:* +91-9820466726 (24/7 helpline)\n* *Sneha India Foundation:* +91-44-24640050 (24/7 helpline)\n* *Vandrevala Foundation:* +91-9999666555 (24/7 helpline)\n* *Fortis Stress Helpline:* +918376804102\n\nThese helplines offer confidential support and can connect you with mental health professionals if needed. Please remember that seeking help is a sign of strength, and there are people who care about you and want to support you through this."}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "i want emergency contact"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "*Emergency Contact Numbers in India:\n\n *Police:* 100\n* *Ambulance:* 102 \n* *Fire:* 101\n\nPlease remember that these numbers are for emergencies only. If you are experiencing a mental health crisis and need immediate support, please consider contacting one of the suicide prevention helplines listed earlier. They are better equipped to provide the specific help you need."}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "i want to meet therapist"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "I understand that you're considering seeking professional help, and that's a great step towards feeling better. \n\n*Would you like to book a session with a therapist?* We can help you find a qualified professional in your area. If you'd like to proceed, please click on \"Book a Session\" and enter your name, age, address, and preferred time slot. \n\nRemember, taking care of your mental health is important, and there's no shame in seeking support."}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "ok"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "I understand that you're considering seeking professional help, and that's a great step towards feeling better. \n\n*Would you like to book a session with a therapist?* We can help you find a qualified professional in your area. If you'd like to proceed, please click on \"Book a Session\" and enter your name, age, address, and preferred time slot. \n\nRemember, taking care of your mental health is important, and there's no shame in seeking support."}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "ok"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "Great! I'm glad you're taking this step. Please click on \"Book a Session\" and provide the necessary details to schedule an appointment with a therapist."}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "but will they will help me"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "Therapists are trained professionals who can provide you with the tools and support you need to navigate through difficult emotions and experiences. They can help you understand your feelings, develop coping mechanisms, and work towards your mental health goals. While I can't guarantee specific outcomes, seeking therapy is a positive step towards improving your well-being and addressing the challenges you're facing."}],
-          },
-          {
-           role: "user",
-           parts: [{ text: "can you teach me maths"}],
-          },
-          {
-           role: "model",
-           parts: [{ text: "Therapists are trained professionals who can provide you with the tools and support you need to navigate through difficult emotions and experiences. They can help you understand your feelings, develop coping mechanisms, and work towards your mental health goals. While I can't guarantee specific outcomes, seeking therapy is a positive step towards improving your well-being and addressing the challenges you're facing."}],
-          },
-      
-      ],
-    });
-
-    const result = await chat.sendMessage(userInput);
-    const response = result.response;
-    return response.text();
-  } catch (error) {
-    console.error('Error in runChat:', error);
-    throw new Error('Error in runChat');
-  }
-}
-
 app.use((req, res, next) => {
-  const allowedOrigins = ['http://localhost:3000', 'http://localhost:8080']; 
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8080',
+  ];
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   next();
@@ -224,303 +83,471 @@ app.use((req, res, next) => {
 app.post('/chat', async (req, res) => {
   try {
     const userInput = req.body?.userInput;
+    const userId = req.body?.userId || null;
+    const conversationHistory = req.body?.conversationHistory || [];
     console.log('Incoming /chat req', userInput);
     if (!userInput) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
 
-    const response = await runChat(userInput);
-    res.json({ response });
+    const risk = assessRisk(userInput);
+    logRiskEvent(risk, userId);
+
+    let memoryContext = '';
+    let memoryUsed = false;
+    if (userId) {
+      try {
+        const memoryData = await buildMemoryContextForChat(userId, userInput);
+        memoryContext = memoryData.text || '';
+        memoryUsed = Boolean(memoryData.memoryUsed);
+      } catch (memErr) {
+        console.error('[memory] context build failed:', memErr.message);
+      }
+    }
+
+    const response = await runChat(userInput, {
+      riskAssessment: risk,
+      memoryContext,
+      conversationHistory,
+    });
+
+    if (userId) {
+      setImmediate(() => {
+        updateMemoryFromExchange(userId, userInput, response).catch((err) =>
+          console.error('[memory] async update:', err.message)
+        );
+      });
+    }
+
+    res.json({
+      response,
+      risk: {
+        level: risk.level,
+        detectedPhrases: risk.detectedPhrases,
+        labels: risk.labels,
+        requiresCrisisSupport: risk.requiresCrisisSupport,
+        crisisResources: risk.requiresCrisisSupport ? getCrisisResources() : [],
+      },
+      memoryActive: memoryUsed,
+    });
   } catch (error) {
     console.error('Error in chat endpoint:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
+function escapeHtml(text) {
+  if (text === undefined || text === null) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/** Safe for double-quoted HTML attributes (e.g. href). */
+function escapeHtmlAttr(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+function buildFromAddress() {
+  const login = String(process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const app = process.env.EMAIL_APP_NAME || 'Mindful';
+  const raw = String(process.env.SMTP_FROM || process.env.EMAIL_FROM || '').trim();
+  if (raw) {
+    if (raw.includes('<') && raw.includes('>')) return raw;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
+      return `"${app} Support" <${raw}>`;
+    }
+    return raw;
+  }
+  return `"${app} Support" <${login}>`;
+}
+
+function buildVerificationEmailHtml(displayName, verifyLink, appName) {
+  const name = escapeHtml(displayName) || 'there';
+  const href = escapeHtmlAttr(verifyLink);
+  const linkPlain = verifyLink;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.6;color:#2d3748;background:#f7fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+    <tr><td style="padding:32px 28px;">
+      <h1 style="margin:0 0 16px;font-size:22px;color:#1a202c;">Welcome to ${escapeHtml(appName)}</h1>
+      <p style="margin:0 0 16px;">Hi ${name},</p>
+      <p style="margin:0 0 24px;">Thanks for signing up. Please confirm your email address using the button below.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:24px;">
+        <tr>
+          <td style="border-radius:6px;background:#4a5568;">
+            <a href="${href}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;">Verify email address</a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;font-size:13px;color:#718096;">If the button does not open, copy this link into your browser:</p>
+      <p style="margin:0 0 24px;font-size:13px;word-break:break-all;color:#4a5568;">${escapeHtml(linkPlain)}</p>
+      <p style="margin:0;font-size:13px;color:#718096;">If you did not create an account, you can ignore this email.</p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function hashVerificationToken(rawToken) {
+  return crypto.createHash('sha256').update(String(rawToken), 'utf8').digest('hex');
+}
+
+function getVerificationTtlMs() {
+  const hours = Number(process.env.VERIFICATION_TOKEN_HOURS || 24);
+  const capped = Math.min(Math.max(Number.isFinite(hours) ? hours : 24, 1), 168);
+  return capped * 60 * 60 * 1000;
+}
+
+function createMailTransport() {
+  const user = String(process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const pass = String(process.env.SMTP_PASS || process.env.EMAIL_PASS || '')
+    .trim()
+    .replace(/\s+/g, '');
+  const host =
+    process.env.SMTP_HOST ||
+    (user && pass ? 'smtp.gmail.com' : undefined);
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  if (!host || !user || !pass) return null;
+  return nodemailer.createTransport({
+    host,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: { user, pass },
+  });
+}
+
+function logGmailSmtpHint(err) {
+  const m = String(err && err.message ? err.message : '');
+  if (!/535|BadCredentials|Invalid login/i.test(m)) return;
+  console.error(
+    '[email] Gmail rejected SMTP login. Check: (1) EMAIL_USER = full Google address for the SAME account that created the app password. (2) EMAIL_PASS = 16-character App Password from https://myaccount.google.com/apppasswords — not your normal Gmail password. (3) 2-Step Verification must be on. (4) Workspace accounts need admin to allow "less secure" / SMTP — often still use App Passwords where allowed.'
+  );
+}
+
+/** Recipient is always the signup address from the API — never EMAIL_USER (that is only SMTP auth + default From). */
+async function sendVerificationEmail(recipientEmail, displayName, rawToken) {
+  const toAddress = typeof recipientEmail === 'string' ? recipientEmail.trim() : String(recipientEmail || '').trim();
+  const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const verifyLink = `${frontendBase}/verify-email?token=${encodeURIComponent(rawToken)}`;
+  const transport = createMailTransport();
+  const appName = process.env.EMAIL_APP_NAME || 'Mindful';
+  const subject =
+    process.env.EMAIL_VERIFY_SUBJECT || `Verify your email – ${appName}`;
+
+  const textBody = `Hi ${displayName ? String(displayName).trim() : 'there'},
+
+Thanks for signing up with ${appName}.
+
+Open this link in your browser to verify your email address:
+
+${verifyLink}
+
+If you did not create an account, you can ignore this email.
+
+— ${appName}`;
+
+  const htmlBody = buildVerificationEmailHtml(displayName, verifyLink, appName);
+
+  if (!toAddress || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toAddress)) {
+    console.error('[email] Invalid or missing recipient address:', recipientEmail);
+    return { sent: false, verifyLink };
+  }
+
+  if (!transport) {
+    console.warn(
+      '[email] Mail not configured. Set EMAIL_USER + EMAIL_PASS (Gmail App Password) or SMTP_HOST/SMTP_USER/SMTP_PASS. Verification link for',
+      toAddress,
+      ':',
+      verifyLink
+    );
+    return { sent: false, verifyLink };
+  }
+
+  const smtpLoginUser = String(process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const fromAddr = buildFromAddress();
+
+  console.log(
+    '[email] Outgoing verification → to (recipient):',
+    toAddress,
+    '| from:',
+    fromAddr,
+    '| SMTP login:',
+    smtpLoginUser || '(unset)'
+  );
+
+  try {
+    await transport.sendMail({
+      from: fromAddr,
+      to: toAddress,
+      replyTo: process.env.EMAIL_REPLY_TO || smtpLoginUser || undefined,
+      subject,
+      text: textBody,
+      html: htmlBody,
+    });
+  } catch (err) {
+    logGmailSmtpHint(err);
+    throw err;
+  }
+  return { sent: true };
+}
+
+const jwtSecret = () => process.env.JWT_SECRET || 'secret_chat';
+
 // Schema for Creating user model
-const Users=mongoose.model('Users',{
-  name:{
-    type:String,
-  },
-  email:{
-    type:String,
-    unique:true,
-  },
-  password:{
-    type:String,
-  },
-  // logindata:{
-  //   type:Object,
-  // },
-  date:{
-    type:Date,
-    default:Date.now,
-  }
-})
-
-
-// Creating endpoint for signup
-app.post('/signup',async(req,res)=>{
-  let check=await Users.findOne({email:req.body.email});
-  if(check){
-    return res.status(400).json({success:false,errors:"User Already exist!"});
-  }
-  // let login={};
-  // for (let index = 0; index <300; index++) {
-  //   login[index]=0;
-  // }
-  const user=new Users({
-    name:req.body.name,
-    email:req.body.email,
-    password:req.body.password,
-  })
-
-  await user.save();
-  //creating the token 
-  // const data={
-  //   user:{
-  //     id:user.id
-  //   }
-  // }
-  const token=jwt.sign({userId:user._id}, process.env.JWT_SECRET || 'secret_chat');
-  res.json({success:true,token, user});
-});
-
-
-
-//Creating endpoint for UserLogin
-
-app.post('/login',async(req,res)=>{
-  const {email,password}=req.body;
-  let user=await Users.findOne({email:email});
-  
-    if (!user || user.password !== password) {
-      return res.status(401).json({ success: false, error: "Invalid credentials" });
-    }
-
-    console.log(user);
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET || 'secret_chat');
-    res.json({ success: true, token, user });
-});
-
-
-//Schema for creating booking session
-// const Book=mongoose.model('Booking',{
-//   userId:String,
-//   name:{
-//     type:String
-//   },
-//   phone:{
-  //     type:String
-  //   },
-  //   age:{
-    //     type:String
-    //   },
-    //   address:{
-//     type:String
-//   },
-//   timeslot:{
-//     type:String
-//   },
-//   date:{
-//     type:Date,
-//     default:Date.now
-//   }
-// })
-app.use("/api/journal", moodEntriesRouter);
-// app.use("/api/insights", insightsRoute);
-app.use("/api/insights", insightsRoute);
-
-const Booking = mongoose.model('Booking', {
-  userId: {
-    type: String,
-    required: true
-  },
-  name: {
-    type: String,
-    required: true
-  },
-  phone: {
-    type: Number,
-    required: true,
-    validate: {
-      validator: function(v) {
-        return /^[0-9]{10}$/.test(v);
+const Users = mongoose.model('Users', {
+  name: { type: String },
+  email: { type: String, unique: true },
+  password: { type: String },
+  isVerified: { type: Boolean, default: false },
+  verificationToken: { type: String },
+  tokenExpiry: { type: Date },
+  date: { type: Date, default: Date.now },
+  pushSubscriptions: [
+    {
+      endpoint: String,
+      keys: {
+        p256dh: String,
+        auth: String,
       },
-      message: props => `${props.value} is not a valid phone number!`
-    }
+      userAgent: String,
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+  notificationPrefs: {
+    enabled: { type: Boolean, default: false },
+    quotes: { type: Boolean, default: true },
+    progressScore: { type: Boolean, default: true },
+    weeklyReport: { type: Boolean, default: true },
   },
-  age: {
-    type: Number,
-    required: true,
-    validate: {
-      validator: Number.isInteger,
-      message: props => `${props.value} is not an integer value for age!`
-    }
-  },
-  address: {
-    type: String,
-    required: true
-  },
-  timeslot: {
-    type: String,
-    required: true
-  },
-  date: {
-    type: String,
-    required: true
-  }
 });
 
-
-
-// Booking endpoint
-app.post('/booking', async (req, res) => {
-  console.log(req.body);
+// Creating endpoint for signup — no JWT until email is verified
+app.post('/signup', async (req, res) => {
   try {
-    const authToken = req.headers.authorization;
-    const { name, phone, age, address, date, timeslot } = req.body;
-    console.log('Incoming /booking req', authToken, name, phone, age, address, date, timeslot);
-    const tokenData = jwt.verify(authToken, 'secret_chat');
-    const userId = tokenData.userId;
-    const booking = new Booking({ userId, name, phone, age, address, date, timeslot });
-    await booking.save();
-    res.json({ success: true, message: "Booking successful" });
-  } catch (error) {
-    console.error('Error in booking endpoint:', error);
-    res.status(500).json({ success: false, error: error.message });
+    const emailRaw = req.body.email;
+    const email = typeof emailRaw === 'string' ? emailRaw.trim() : '';
+    const password = req.body.password;
+    const name = req.body.name ?? req.body.username;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, errors: 'Email and password are required.' });
+    }
+
+    const existing = await Users.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, errors: 'User Already exist!' });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashVerificationToken(rawToken);
+    const tokenExpiry = new Date(Date.now() + getVerificationTtlMs());
+
+    const user = new Users({
+      name,
+      email,
+      password,
+      isVerified: false,
+      verificationToken: tokenHash,
+      tokenExpiry,
+    });
+
+    await user.save();
+
+    let emailOutcome;
+    try {
+      emailOutcome = await sendVerificationEmail(email, name, rawToken);
+    } catch (e) {
+      console.error('[email] send verification failed:', e.message);
+      emailOutcome = { sent: false, error: true };
+    }
+
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.verificationToken;
+    delete userResponse.tokenExpiry;
+
+    const emailSent = !!(emailOutcome && emailOutcome.sent);
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const verificationLink = `${frontendBase}/verify-email?token=${encodeURIComponent(rawToken)}`;
+
+    const payload = {
+      success: true,
+      requiresVerification: true,
+      message: 'A verification link has been sent to your email.',
+      emailSent,
+      user: userResponse,
+    };
+
+    if (!emailSent && verificationLink) {
+      payload.verificationLink = verificationLink;
+      payload.message +=
+        ' If no email arrives, configure SMTP (e.g. Gmail) on the server or use the link shown on the verification page.';
+    }
+
+    res.json(payload);
+  } catch (err) {
+    console.error('signup:', err);
+    if (err && err.code === 11000) {
+      return res.status(400).json({ success: false, errors: 'User Already exist!' });
+    }
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Could not create account. Check MongoDB connection and server logs.',
+    });
   }
 });
 
+// Creating endpoint for UserLogin — only verified users receive a token
+app.post('/login', async (req, res) => {
+  const emailRaw = req.body.email;
+  const email = typeof emailRaw === 'string' ? emailRaw.trim() : emailRaw;
+  const { password } = req.body;
 
-app.get('/user-bookings', async (req, res) => {
+  const user = await Users.findOne({ email });
+  if (!user || user.password !== password) {
+    return res.status(401).json({ success: false, error: 'Invalid credentials' });
+  }
+
+  if (user.isVerified === false) {
+    return res.status(403).json({
+      success: false,
+      error: 'Please verify your email before logging in. Check your inbox for the verification link.',
+      requiresVerification: true,
+      user: { email: user.email },
+    });
+  }
+
+  const token = jwt.sign({ userId: user._id }, jwtSecret());
+  const userResponse = user.toObject();
+  delete userResponse.password;
+  delete userResponse.verificationToken;
+  delete userResponse.tokenExpiry;
+  res.json({ success: true, token, user: userResponse });
+});
+
+app.get('/verify-email', async (req, res) => {
   try {
-    const authToken = req.headers.authorization;
-    const tokenData = jwt.verify(authToken, process.env.JWT_SECRET || 'secret_chat');
-    const userId = tokenData.userId;
-    const bookings = await Booking.find({ userId });
-    res.json({ success: true, bookings });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    const rawToken = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+    if (!rawToken) {
+      return res.status(400).json({ success: false, error: 'Verification token is required.' });
+    }
+
+    const tokenHash = hashVerificationToken(rawToken);
+    const user = await Users.findOne({
+      verificationToken: tokenHash,
+      tokenExpiry: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired verification link.',
+      });
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.tokenExpiry = undefined;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Your email has been verified. You can sign in now.',
+    });
+  } catch (err) {
+    console.error('verify-email:', err);
+    res.status(500).json({ success: false, error: 'Could not verify email.' });
+  }
+});
+
+app.post('/resend-verification', async (req, res) => {
+  const genericReply = () =>
+    res.json({
+      success: true,
+      message:
+        'If that email is registered and still needs verification, a new verification email has been sent.',
+    });
+
+  try {
+    const emailRaw = req.body.email;
+    const email = typeof emailRaw === 'string' ? emailRaw.trim() : '';
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email is required.' });
+    }
+
+    const user = await Users.findOne({ email });
+    if (!user) {
+      return genericReply();
+    }
+
+    if (user.isVerified === true) {
+      return genericReply();
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    user.verificationToken = hashVerificationToken(rawToken);
+    user.tokenExpiry = new Date(Date.now() + getVerificationTtlMs());
+    await user.save();
+
+    try {
+      await sendVerificationEmail(email, user.name, rawToken);
+    } catch (e) {
+      console.error('[email] resend failed:', e.message);
+      return res.status(500).json({ success: false, error: 'Could not send verification email.' });
+    }
+
+    return genericReply();
+  } catch (err) {
+    console.error('resend-verification:', err);
+    res.status(500).json({ success: false, error: 'Could not resend verification email.' });
+  }
+});
+
+app.get('/auth/me', async (req, res) => {
+  try {
+    const header = req.headers.authorization;
+    if (!header || typeof header !== 'string') {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    const raw = header.startsWith('Bearer ') ? header.slice(7).trim() : header.trim();
+    const tokenData = jwt.verify(raw, jwtSecret());
+    const user = await Users.findById(tokenData.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (user.isVerified === false) {
+      return res.status(403).json({
+        success: false,
+        requiresVerification: true,
+        user: { email: user.email },
+      });
+    }
+
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.verificationToken;
+    delete userResponse.tokenExpiry;
+    res.json({ success: true, user: userResponse });
+  } catch (_e) {
+    res.status(401).json({ success: false, error: 'Invalid or expired token' });
   }
 });
 
 
-// app.post('/booking',async(req,res)=>{
-//   const authToken = req.headers.authorization;
-//     const { name, phone, age, address, timeslot } = req.body;
-//     const tokenData = jwt.verify(authToken, 'secret_chat');
-//     const userId = tokenData.userId;
-//     // const book = new Book({ userId, name, phone, age, address, timeslot });
-
-//   const book=new Book({
-//     userId:req.body.userId,
-//     name:req.body.name,
-//     phone:req.body.phone,
-//     age:req.body.age,
-//     address:req.body.address,
-//     timeslot:req.body.timeslot,
-//   })
-//   await book.save();
-//   console.log("Your session has booked");
-//   res.json({
-//     success:true,
-//     timeslot:req.body.timeslot
-//   })
-// })
-
-
-
-
-// const Users = mongoose.model('Users', {
-//   name: String,
-//   email: {
-//     type: String,
-//     unique: true
-//   },
-//   password: String,
-//   logindata: Object,
-//   date: {
-//     type: Date,
-//     default: Date.now
-//   }
-// });
-
-// // Schema for Booking
-// const Booking = mongoose.model('Booking', {
-//   userId: String, // Add userId field to relate booking to user
-//   name: String,
-//   phone: String,
-//   age: String,
-//   address: String,
-//   timeslot: String,
-//   date: {
-//     type: Date,
-//     default: Date.now
-//   }
-// });
-
-// // Signup endpoint
-// app.post('/signup', async (req, res) => {
-//   try {
-//     const existingUser = await Users.findOne({ email:req.body.email });
-//     if (existingUser) {
-//       return res.status(400).json({ success: false, error: "User already exists" });
-//     }
-    
-//     const { name, email, password } = req.body;
-//     const user = new Users({ name, email, password });
-//     await user.save();
-//     const token = jwt.sign({ userId: user._id }, 'secret_chat');
-//     res.json({ success: true, token });
-//   } catch (error) {
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// });
-
-// // Login endpoint
-// app.post('/login', async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     const user = await Users.findOne({ email });
-//     if (!user || user.password !== password) {
-//       return res.status(401).json({ success: false, error: "Invalid credentials" });
-//     }
-//     const token = jwt.sign({ userId: user._id }, 'secret_chat');
-//     res.json({ success: true, token });
-//   } catch (error) {
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// });
-
-// // Booking endpoint
-// app.post('/booking', async (req, res) => {
-//   try {
-//     const authToken = req.headers.authorization;
-//     const { name, phone, age, address, timeslot } = req.body;
-//     const tokenData = jwt.verify(authToken, 'secret_chat');
-//     const userId = tokenData.userId;
-//     const booking = new Booking({ userId, name, phone, age, address, timeslot });
-//     await booking.save();
-//     res.json({ success: true, message: "Booking successful" });
-//   } catch (error) {
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// });
-
-// // User bookings endpoint
-// app.get('/user-bookings', async (req, res) => {
-//   try {
-//     const authToken = req.headers.authorization;
-//     const tokenData = jwt.verify(authToken, 'secret_chat');
-//     const userId = tokenData.userId;
-//     const bookings = await Booking.find({ userId });
-//     res.json({ success: true, bookings });
-//   } catch (error) {
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// });
+app.use("/api/journal", moodEntriesRouter);
+app.use("/api/insights", insightsRoute);
+app.use("/api/memory", memoryRoute);
+app.use("/api/activities", activityRoute);
+app.use("/api/notifications", notificationRoute);
+app.use("/api/weekly-reports", weeklyReportRoute);
 
 
 
@@ -627,4 +654,6 @@ app.get('/goodthoughts',(req,res)=>{
 
 app.listen(port, () => {
   console.log(`Backend server listening on port ${port}`);
+  configurePush();
+  startNotificationScheduler();
 });

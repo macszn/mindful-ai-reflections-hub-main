@@ -31,13 +31,18 @@ const RegisterPage = () => {
     setIsLoading(true);
     
     try {
-      const success = await register(name, email, password);
-      
-      if (success) {
-        toast.success('Account created successfully!');
-        navigate('/'); // Navigate to home page to show quotes
+      const result = await register(name, email, password);
+
+      if (result.ok) {
+        if (result.needsVerification) {
+          toast.success('Account created. Check your email to verify, then sign in.');
+          navigate('/login');
+        } else {
+          toast.success('Account created successfully!');
+          navigate('/');
+        }
       } else {
-        toast.error('Failed to create account');
+        toast.error(result.message);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create account');
@@ -53,7 +58,7 @@ const RegisterPage = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
             <CardDescription>
-              Enter your information to create your MindCare account
+              Enter your information to create your Mindful account
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleRegister}>

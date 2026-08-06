@@ -7,98 +7,145 @@ import { ArrowUpRight, ArrowDownRight, Lightbulb, TrendingUp, Target } from 'luc
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { collectUserChatMessages } from '@/utils/collectChatMessages';
+import WellnessScoreCard, { type WellnessScoreData } from '@/components/insights/WellnessScoreCard';
+import NotificationSettingsCard from '@/components/insights/NotificationSettingsCard';
+import WeeklyReportCard from '@/components/insights/WeeklyReportCard';
+import { getApiBase } from '@/utils/api';
+import { fetchLatestWeeklyReport, type WeeklyReport } from '@/utils/weeklyReport';
 
-// Mock data for the charts
-// const weeklyMoodData = [
-//   { day: 'Mon', value: 3, mood: 'anxious' },
-//   { day: 'Tue', value: 2, mood: 'sad' },
-//   { day: 'Wed', value: 4, mood: 'calm' },
-//   { day: 'Thu', value: 5, mood: 'happy' },
-//   { day: 'Fri', value: 4, mood: 'calm' },
-//   { day: 'Sat', value: 5, mood: 'happy' },
-//   { day: 'Sun', value: 5, mood: 'excited' },
-// ];
-
-// const monthlyMoodData = [
-//   { name: 'Happy', value: 12 },
-//   { name: 'Calm', value: 8 },
-//   { name: 'Anxious', value: 6 },
-//   { name: 'Sad', value: 4 },
-//   { name: 'Angry', value: 2 },
-// ];
-
+type InsightRecommendation = {
+  title: string;
+  description: string;
+  content: string;
+};
 
 const InsightsPage = () => {
   const [loading, setLoading] = useState(true);
-   const [insights, setInsights] = useState<any>(null);
-  
-     useEffect(() => {
-    const userData = localStorage.getItem('MindCare_users');
-    console.log('User data from localStorage:', userData);
-    
+  const [insights, setInsights] = useState<any>(null);
+  const [recommendations, setRecommendations] = useState<InsightRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+  const [recommendationsEmpty, setRecommendationsEmpty] = useState(false);
+  const [wellness, setWellness] = useState<WellnessScoreData | null>(null);
+  const [wellnessLoading, setWellnessLoading] = useState(false);
+  const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const [weeklyReportLoading, setWeeklyReportLoading] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('Mindful_users');
+
     if (!userData) {
-      console.log('No user data found in localStorage');
-      return;
-    }
-    
-    const userId = JSON.parse(userData).id;
-    console.log('Extracted userId:', userId);
-    
-    if (!userId) {
-      console.log('No userId found in user data');
+      setLoading(false);
       return;
     }
 
-          const fetchInsights = async () => {
-        try {
-          const res = await axios.get(`http://localhost:4000/api/insights/${userId}`);
-          
-          if (res.data.error) {
-            console.error('API returned error:', res.data.error);
-            setInsights(null);
-            return;
-          }
-          
-          setInsights(res.data);
-                  console.log('Insights data received:', res.data);
-        console.log('Weekly mood data:', res.data.weeklyMoodData);
-        console.log('Monthly mood data:', res.data.monthlyMoodData);
-        console.log('Personalized insights:', res.data.personalizedInsights);
-        } catch (error) {
-          console.error('Failed to fetch insights:', error);
-          setInsights(null);
-        } finally {
-          setLoading(false);
+    const userId = JSON.parse(userData).id;
+
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    const apiBase = getApiBase();
+    const chatMessages = collectUserChatMessages(userId);
+
+    const fetchRecommendations = async () => {
+      setRecommendationsLoading(true);
+      setRecommendationsError(null);
+      setRecommendationsEmpty(false);
+
+      try {
+        const res = await axios.post(
+          `${apiBase}/api/insights/${userId}/recommendations`,
+          { chatMessages }
+        );
+
+        if (res.data.empty) {
+          setRecommendations([]);
+          setRecommendationsEmpty(true);
+          return;
         }
-      };
+
+        setRecommendations(res.data.recommendations || []);
+      } catch (error) {
+        console.error('Failed to fetch AI recommendations:', error);
+        const message =
+          axios.isAxiosError(error) && error.response?.data?.error
+            ? String(error.response.data.error)
+            : 'Could not load AI recommendations. Please try again.';
+        setRecommendationsError(message);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    };
+
+    const fetchInsights = async () => {
+      try {
+        const res = await axios.get(`${apiBase}/api/insights/${userId}`);
+
+        if (res.data.error) {
+          console.error('API returned error:', res.data.error);
+          setInsights(null);
+          return;
+        }
+
+        setInsights(res.data);
+      } catch (error) {
+        console.error('Failed to fetch insights:', error);
+        setInsights(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchWellnessScore = async () => {
+      setWellnessLoading(true);
+      try {
+        const res = await axios.post(`${apiBase}/api/insights/${userId}/wellness-score`, {
+          chatMessages,
+        });
+        setWellness(res.data);
+      } catch (error) {
+        console.error('Failed to fetch wellness score:', error);
+        setWellness(null);
+      } finally {
+        setWellnessLoading(false);
+      }
+    };
 
     fetchInsights();
+    fetchRecommendations();
+    fetchWellnessScore();
+
+    const fetchWeeklyReport = async () => {
+      setWeeklyReportLoading(true);
+      try {
+        const { report } = await fetchLatestWeeklyReport();
+        setWeeklyReport(report);
+      } catch (error) {
+        console.error('Failed to fetch weekly report:', error);
+        setWeeklyReport(null);
+      } finally {
+        setWeeklyReportLoading(false);
+      }
+    };
+    fetchWeeklyReport();
   }, []);
   
      if (loading) {
     return <div className="text-center py-20 text-muted-foreground">Loading insights...</div>;
   }
 
-  if (!insights) {
-    return (
-      <div className="container mx-auto max-w-6xl px-4 py-8">
-        <div className="text-center py-20">
-          <h1 className="text-3xl font-bold mb-2">Emotional Insights</h1>
-          <p className="text-muted-foreground mb-4">Unable to load insights data</p>
-          <p className="text-sm text-muted-foreground">Please try refreshing the page or check if you have any journal entries.</p>
-        </div>
-      </div>
-    );
-  }
-  
-     const {
+  const {
     weeklyAverageMood,
     mostFrequentMood,
     journalEntries,
     streak,
     weeklyMoodData,
     monthlyMoodData,
-    personalizedInsights
+    personalizedInsights,
   } = insights || {};
 
   // Fallback data if backend doesn't provide chart data
@@ -119,6 +166,12 @@ const InsightsPage = () => {
   // Use backend data if available, otherwise use fallback
   const chartWeeklyData = weeklyMoodData && weeklyMoodData.length > 0 ? weeklyMoodData : fallbackWeeklyData;
   const chartMonthlyData = monthlyMoodData && monthlyMoodData.length > 0 ? monthlyMoodData : fallbackMonthlyData;
+  const improvementValue = Number.parseFloat(String(weeklyAverageMood?.improvement ?? '0').replace('%', '')) || 0;
+  const negativeMoods = new Set(['angry', 'sad', 'anxious', 'tired']);
+  const isNegativeMoodTrend = negativeMoods.has(String(mostFrequentMood?.mood ?? '').toLowerCase());
+  const showMoodDecline = isNegativeMoodTrend || improvementValue < 0;
+  const journalChangeValue = Number.parseFloat(String(journalEntries?.change ?? '0').replace('%', '')) || 0;
+  const showJournalGrowth = journalChangeValue >= 0 || Number(journalEntries?.thisWeek ?? 0) > 0;
   
   const COLORS = ['#4CAF50', '#2196F3', '#FFC107', '#9C27B0', '#F44336'];
   return (
@@ -135,6 +188,10 @@ const InsightsPage = () => {
         )}
       </div>
 
+      <WellnessScoreCard data={wellness} loading={wellnessLoading} />
+      <WeeklyReportCard report={weeklyReport} loading={weeklyReportLoading} />
+      <NotificationSettingsCard />
+
       {/* Stats overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <Card>
@@ -144,8 +201,14 @@ const InsightsPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">{weeklyAverageMood?.improvement || '0%'} improvement</span>
-              <ArrowUpRight className="text-green-500 h-4 w-4" />
+              <span className="text-muted-foreground text-sm">
+                {weeklyAverageMood?.improvement || '0%'} {showMoodDecline ? 'declining' : 'improving'}
+              </span>
+              {showMoodDecline ? (
+                <ArrowDownRight className="text-red-500 h-4 w-4" />
+              ) : (
+                <ArrowUpRight className="text-green-500 h-4 w-4" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -170,8 +233,14 @@ const InsightsPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">{journalEntries?.thisWeek ?? 0} this week</span>
-              <ArrowDownRight className="text-red-500 h-4 w-4" />
+              <span className="text-muted-foreground text-sm">
+                {journalEntries?.thisWeek ?? 0} this week ({journalEntries?.change ?? '0%'})
+              </span>
+              {showJournalGrowth ? (
+                <ArrowUpRight className="text-green-500 h-4 w-4" />
+              ) : (
+                <ArrowDownRight className="text-red-500 h-4 w-4" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -362,50 +431,74 @@ const InsightsPage = () => {
         </TabsContent>
         
         <TabsContent value="recommendations">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                title: "Stress Management",
-                description: "Based on your anxiety patterns",
-                content: "Try the 4-7-8 breathing technique: inhale for 4 seconds, hold for 7, exhale for 8. This can help reduce stress levels quickly."
-              },
-              {
-                title: "Sleep Improvement",
-                description: "Your sleep quality affects your mood",
-                content: "Consider creating a bedtime routine by turning off screens 1 hour before bed and reading or meditating instead."
-              },
-              {
-                title: "Social Connection",
-                description: "Important for emotional wellbeing",
-                content: "You've mentioned feeling isolated. Consider scheduling a weekly social activity, even a brief coffee with a friend."
-              },
-              {
-                title: "Physical Activity",
-                description: "Boosts mood and reduces anxiety",
-                content: "Even short 10-minute walks can significantly improve your mood. Try to incorporate movement into your daily routine."
-              },
-              {
-                title: "Gratitude Practice",
-                description: "Shifts focus to positive aspects",
-                content: "Consider writing down 3 things you're grateful for each morning to prime your mind for positive thinking."
-              },
-              {
-                title: "Self-compassion",
-                description: "Be kind to yourself",
-                content: "Notice your negative self-talk and try to speak to yourself with the kindness you'd offer a good friend."
-              },
-            ].map((item, i) => (
-              <Card key={i} className="card-hover">
-                <CardHeader>
-                  <CardTitle>{item.title}</CardTitle>
-                  <CardDescription>{item.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>{item.content}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {recommendationsLoading ? (
+            <div className="text-center py-20 text-muted-foreground">
+              Generating personalized recommendations from your journals and chats…
+            </div>
+          ) : recommendationsError ? (
+            <div className="text-center py-20 max-w-md mx-auto">
+              <p className="text-muted-foreground mb-4">{recommendationsError}</p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const userData = localStorage.getItem('Mindful_users');
+                  if (!userData) return;
+                  const userId = JSON.parse(userData).id;
+                  if (!userId) return;
+                  setRecommendationsLoading(true);
+                  setRecommendationsError(null);
+                  axios
+                    .post(`http://localhost:4000/api/insights/${userId}/recommendations`, {
+                      chatMessages: collectUserChatMessages(userId),
+                    })
+                    .then((res) => {
+                      if (res.data.empty) {
+                        setRecommendations([]);
+                        setRecommendationsEmpty(true);
+                      } else {
+                        setRecommendations(res.data.recommendations || []);
+                        setRecommendationsEmpty(false);
+                      }
+                    })
+                    .catch(() => setRecommendationsError('Could not load AI recommendations. Please try again.'))
+                    .finally(() => setRecommendationsLoading(false));
+                }}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : recommendationsEmpty || recommendations.length === 0 ? (
+            <div className="text-center py-20 max-w-md mx-auto">
+              <div className="text-6xl mb-4">✨</div>
+              <h3 className="text-xl font-semibold mb-2">No recommendations yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Recommendations are generated by AI from your mood journals and Mindful chat conversations.
+                Start journaling or chatting to unlock personalized suggestions.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button asChild>
+                  <Link to="/journal">Start Journaling</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/chat">Talk to Mindful</Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recommendations.map((item, i) => (
+                <Card key={i} className="card-hover">
+                  <CardHeader>
+                    <CardTitle>{item.title}</CardTitle>
+                    <CardDescription>{item.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p>{item.content}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

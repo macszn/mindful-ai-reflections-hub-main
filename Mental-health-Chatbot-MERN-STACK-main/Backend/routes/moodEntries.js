@@ -72,6 +72,18 @@ router.post('/', async (req, res) => {
     });
 
     const savedEntry = await entry.save();
+
+    try {
+      const { syncEmotionalHistoryFromJournals } = require('../lib/memoryService');
+      setImmediate(() => {
+        syncEmotionalHistoryFromJournals(req.query.userId).catch((err) =>
+          console.error('[memory] journal sync:', err.message)
+        );
+      });
+    } catch (_) {
+      /* memory sync optional */
+    }
+
     res.status(201).json(savedEntry);
   } catch (error) {
     console.error(error);

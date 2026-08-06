@@ -3,7 +3,8 @@ import Chatbot from './Components/Chatbot/Chatbot'
 import Navbar from './Components/Navbar/Navbar'
 import Home from './Components/Home/Home'
 import LoginSignup from './Components/LoginSignup/LoginSignup'
-import Booking from './Components/Booking/Booking'
+import VerifyEmail from './Components/VerifyEmail/VerifyEmail'
+import VerificationPending from './Components/VerificationPending/VerificationPending'
 import {Route,Routes,BrowserRouter} from 'react-router-dom'
 import Check from './Components/Check/Check'
 import { Toaster } from 'react-hot-toast'
@@ -17,8 +18,9 @@ function App() {
       <Route path='/' element={<BeforeHome/>}/>
     <Route path='/home' element={<Home/>}/>
     <Route path='/login' element={<LoginSignup/>}/>
+    <Route path='/verify-email' element={<VerifyEmail/>}/>
+    <Route path='/verification-pending' element={<VerificationPending/>}/>
     <Route path='/chatbot' element={<Chatbot/>}/>
-    <Route path='/booking' element={<Booking/>}/>
     <Route path='/check' element={<Check/>}/>
 
     </Routes>

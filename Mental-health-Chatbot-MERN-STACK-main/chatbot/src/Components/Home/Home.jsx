@@ -9,8 +9,10 @@ import back_img from './signupill.png'
 import { Link } from 'react-router-dom';
 import Footer from '../Footer/Footer'
 import config from '../../config';
+import useRequireVerifiedUser from '../../hooks/useRequireVerifiedUser';
 
 function Home() {
+  const allowed = useRequireVerifiedUser();
 
   const[allthoughts,setAllThoughts]=useState({});
 
@@ -24,6 +26,14 @@ function Home() {
   useEffect(()=>{
     fetchInfo();
   },[]);
+
+  if (!allowed) {
+    return (
+      <div className="home" style={{ padding: '120px 24px', textAlign: 'center' }}>
+        <p>Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className='home'>

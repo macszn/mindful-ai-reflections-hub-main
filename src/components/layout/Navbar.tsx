@@ -6,7 +6,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, X, Moon, Sun } from 'lucide-react';
+import { Menu, X, Moon, Sun, Bot } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
 import UserMenu from './UserMenu';
@@ -21,9 +21,9 @@ const Navbar = () => {
       <div className="container-custom flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-lg">M</span>
+            <Bot className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-xl">MindCare</span>
+          <span className="font-bold text-xl">Mindful</span>
         </Link>
         
         {/* Desktop Menu */}

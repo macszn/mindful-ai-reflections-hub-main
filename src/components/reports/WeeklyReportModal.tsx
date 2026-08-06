@@ -1,0 +1,120 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Sparkles, TrendingUp, AlertCircle, Lightbulb } from 'lucide-react';
+import type { WeeklyReport } from '@/utils/weeklyReport';
+
+type Props = {
+  report: WeeklyReport | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDismiss: () => void;
+};
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const WeeklyReportModal = ({ report, open, onOpenChange, onDismiss }: Props) => {
+  if (!report) return null;
+
+  const weekLabel = report.weekKey?.replace('-W', ' · Week ') || 'This week';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-2 text-primary mb-1">
+            <Sparkles className="h-5 w-5" />
+            <span className="text-xs font-medium uppercase tracking-wide">Weekly Mental Health Report</span>
+          </div>
+          <DialogTitle>{weekLabel}</DialogTitle>
+          <DialogDescription>AI-generated insights from your journals, moods, and conversations</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 text-sm">
+          <p className="text-base leading-relaxed font-medium border-l-4 border-primary pl-3 py-1">
+            {report.summary}
+          </p>
+
+          {report.emotionalSummary && (
+            <section>
+              <h4 className="font-semibold mb-1">Emotional summary</h4>
+              <p className="text-muted-foreground">{report.emotionalSummary}</p>
+            </section>
+          )}
+
+          {report.dominantMoods && report.dominantMoods.length > 0 && (
+            <section>
+              <h4 className="font-semibold mb-2">Dominant moods</h4>
+              <div className="flex flex-wrap gap-2">
+                {report.dominantMoods.map((mood) => (
+                  <Badge key={mood} variant="secondary">
+                    {capitalize(mood)}
+                  </Badge>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {report.stressTriggers && report.stressTriggers.length > 0 && (
+            <section>
+              <h4 className="font-semibold mb-2 flex items-center gap-1">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                Stress triggers
+              </h4>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                {report.stressTriggers.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {report.positiveImprovements && report.positiveImprovements.length > 0 && (
+            <section>
+              <h4 className="font-semibold mb-2 flex items-center gap-1">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+                Positive improvements
+              </h4>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                {report.positiveImprovements.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {report.recommendations && report.recommendations.length > 0 && (
+            <section>
+              <h4 className="font-semibold mb-2 flex items-center gap-1">
+                <Lightbulb className="h-4 w-4 text-primary" />
+                Personalized recommendations
+              </h4>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                {report.recommendations.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onDismiss} className="w-full sm:w-auto">
+            Got it, thanks
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default WeeklyReportModal;

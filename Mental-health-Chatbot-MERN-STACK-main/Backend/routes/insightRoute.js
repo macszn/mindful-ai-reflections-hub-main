@@ -1,7 +1,124 @@
 const MoodEntry = require('../models/MoodEntry');
 const moment = require('moment');
 const express = require('express');
+const { generateAIRecommendations } = require('../lib/generateRecommendations');
+const { buildMemoryContext } = require('../lib/memoryService');
+const {
+  computeWellnessScore,
+  upsertTodayScore,
+  getScoreHistory,
+} = require('../lib/wellnessScore');
 const router = express.Router();
+
+router.post('/:userId/wellness-score', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { chatMessages = [] } = req.body || {};
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    const computed = await computeWellnessScore(userId, { chatMessages });
+    await upsertTodayScore(userId, computed);
+    const history = await getScoreHistory(userId, 30);
+
+    return res.json({
+      ...computed,
+      history,
+      label: wellnessLabel(computed.score),
+    });
+  } catch (err) {
+    console.error('Error computing wellness score:', err);
+    return res.status(500).json({ error: 'Failed to compute wellness score' });
+  }
+});
+
+router.get('/:userId/wellness-score', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    const computed = await computeWellnessScore(userId, { chatMessages: [] });
+    await upsertTodayScore(userId, computed);
+    const history = await getScoreHistory(userId, Number(req.query.days) || 30);
+
+    return res.json({
+      ...computed,
+      history,
+      label: wellnessLabel(computed.score),
+    });
+  } catch (err) {
+    console.error('Error fetching wellness score:', err);
+    return res.status(500).json({ error: 'Failed to fetch wellness score' });
+  }
+});
+
+function wellnessLabel(score) {
+  if (score >= 85) return 'Thriving';
+  if (score >= 70) return 'Strong';
+  if (score >= 55) return 'Steady';
+  if (score >= 40) return 'Building';
+  return 'Needs care';
+}
+
+router.post('/:userId/recommendations', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { chatMessages = [] } = req.body || {};
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    const thirtyDaysAgo = moment().subtract(30, 'days').startOf('day');
+    const journalEntries = await MoodEntry.find({
+      userId,
+      date: { $gte: thirtyDaysAgo.toDate() },
+    })
+      .sort({ date: -1 })
+      .limit(40)
+      .lean();
+
+    let memoryContext = '';
+    try {
+      const memoryData = await buildMemoryContext(userId);
+      memoryContext = memoryData.text || '';
+    } catch (memErr) {
+      console.error('[memory] recommendations context:', memErr.message);
+    }
+
+    const { recommendations, empty } = await generateAIRecommendations({
+      journalEntries,
+      chatMessages,
+      memoryContext,
+    });
+
+    if (empty) {
+      return res.status(200).json({
+        recommendations: [],
+        empty: true,
+        message: 'Add journal entries or chat with Mindful to unlock AI recommendations.',
+      });
+    }
+
+    return res.status(200).json({
+      recommendations,
+      empty: false,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Error generating AI recommendations:', err);
+    const status = /API_KEY/i.test(String(err.message)) ? 503 : 500;
+    return res.status(status).json({
+      error:
+        status === 503
+          ? 'AI recommendations are unavailable. Configure API_KEY in the backend.'
+          : 'Failed to generate recommendations. Please try again.',
+    });
+  }
+});
 
 router.get('/:userId', async (req, res) => {
   try {
@@ -139,6 +256,15 @@ router.get('/:userId', async (req, res) => {
         improvement = '0%';
     }
 
+    // Journal entries week-over-week change
+    let journalChange = '0%';
+    if (previousWeekEntries.length > 0) {
+      const changePct = ((weeklyEntriesCount - previousWeekEntries.length) / previousWeekEntries.length) * 100;
+      journalChange = `${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}%`;
+    } else if (weeklyEntriesCount > 0) {
+      journalChange = '+100%';
+    }
+
     // Generate weekly mood data for charts
     const weeklyMoodData = generateWeeklyMoodData(weeklyEntries, moodScale);
     console.log('Generated weekly mood data:', weeklyMoodData);
@@ -209,7 +335,7 @@ router.get('/:userId', async (req, res) => {
       journalEntries: {
         total: totalEntries,
         thisWeek: weeklyEntriesCount,
-        change: "-25%" // placeholder
+        change: journalChange
       },
       streak: {
         consecutiveDays: maxStreak
@@ -333,7 +459,7 @@ function generatePersonalizedInsights(weeklyEntries, monthlyEntries, allEntries,
         type: 'mood-patterns',
         title: 'Mood Patterns',
         description: 'Based on your journal entries',
-        content: `You've felt anxious ${moodCounts['anxious']} days this week. Consider scheduling short breaks during your workday to practice MindCareness.`,
+        content: `You've felt anxious ${moodCounts['anxious']} days this week. Consider scheduling short breaks during your workday to practice Mindfulness.`,
         icon: 'Lightbulb',
         color: 'primary'
       });
@@ -390,7 +516,7 @@ function generatePersonalizedInsights(weeklyEntries, monthlyEntries, allEntries,
       title: 'Goal Tracking',
       description: 'Progress toward your mental health goals',
       goals: [
-        { name: 'Daily MindCareness', current: weeklyGoal, target: 7, percentage: Math.round((weeklyGoal / 7) * 100) },
+        { name: 'Daily Mindfulness', current: weeklyGoal, target: 7, percentage: Math.round((weeklyGoal / 7) * 100) },
         { name: 'Journal Entries', current: weeklyEntries.length, target: 7, percentage: Math.round((weeklyEntries.length / 7) * 100) },
         { name: 'Positive Reflection', current: positiveEntries, target: 5, percentage: Math.round((positiveEntries / 5) * 100) }
       ],

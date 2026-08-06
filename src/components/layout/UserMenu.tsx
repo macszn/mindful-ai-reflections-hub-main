@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 
 const UserMenu = () => {
   const { logout } = useAuth();
-  const user = JSON.parse(localStorage.getItem('MindCare_users') || '{}');
+  const user = JSON.parse(localStorage.getItem('Mindful_users') || '{}');
   const navigate = useNavigate();
 
   if (!user) return null;

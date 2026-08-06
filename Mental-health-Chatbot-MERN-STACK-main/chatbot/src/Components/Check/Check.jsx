@@ -1,13 +1,12 @@
-
-import React, { useState ,useEffect} from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './Check.css';
 // import video from './new.mp4';
 // import newvideo from './newvid.mp4';
 import list from './micro.png'
 import stop from './stop.png'
-import book from './book.jpg'
 import cross from './cross_btn.svg'
+import { toast } from 'react-hot-toast';
 
 
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
@@ -72,10 +71,14 @@ const MarkdownRenderer = ({ content }) => {
 };
 
 function Check() {
+  const GUEST_CHAT_LIMIT = 5;
   const [userInput, setUserInput] = useState('');
   const [showReset, setShowReset] = useState(false);
 
   const [chatHistory, setChatHistory] = useState([]);
+  const [guestQuestionCount, setGuestQuestionCount] = useState(0);
+  const isLoggedIn = useMemo(() => Boolean(localStorage.getItem('auth-token')), []);
+  const isGuestLimitReached = !isLoggedIn && guestQuestionCount >= GUEST_CHAT_LIMIT;
   const { transcript, resetTranscript, browserSupportsSpeechRecognition, isListening } = useSpeechRecognition();
 
   useEffect(() => {
@@ -113,38 +116,61 @@ function Check() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (userInput.trim() !== '') {
-      try {
-        const response = await fetch("http://localhost:4000/chat", {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userInput }),
-        });
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+    const cleanInput = userInput.trim();
+    if (!cleanInput) return;
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch');
-        }
-        const data = await response.json();
-        const botMessage = data.response;
-
-        setChatHistory([
-          ...chatHistory,
-          { role: 'user', message: userInput },
-          { role: 'bot', message: botMessage },
-
-        ]);
-
-        
-
-        setUserInput('');
-      } catch (error) {
-        console.error('Error:', error);
-      }
+    if (isGuestLimitReached) {
+      toast.error('You reached the 5-chat free limit. Create an account to keep chatting.');
+      return;
     }
-        //  chatHistory.scrollTop = chatHistory.scrollHeight,
+
+    try {
+      const conversationHistory = chatHistory.slice(-12).map((item) => ({
+        sender: item.role === 'user' ? 'user' : 'ai',
+        content: item.message,
+      }));
+
+      const response = await fetch('http://localhost:4000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userInput: cleanInput,
+          userId: localStorage.getItem('userId') || undefined,
+          conversationHistory,
+        }),
+      });
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch');
+      }
+      const data = await response.json();
+      const botMessage = data.response;
+
+      setChatHistory([
+        ...chatHistory,
+        { role: 'user', message: cleanInput },
+        { role: 'bot', message: botMessage },
+
+      ]);
+
+      if (!isLoggedIn) {
+        setGuestQuestionCount((prevCount) => {
+          const nextCount = prevCount + 1;
+          if (nextCount >= GUEST_CHAT_LIMIT) {
+            toast.error('You reached the 5-chat free limit. Create an account to keep chatting.');
+          }
+          return nextCount;
+        });
+      }
+
+      setUserInput('');
+    } catch (error) {
+      console.error('Error:', error);
+    }
+    //  chatHistory.scrollTop = chatHistory.scrollHeight,
 
   };
 
@@ -176,6 +202,11 @@ function Check() {
 
       <div className="chat-container">
         <h1>WellBot</h1>
+        {!isLoggedIn ? (
+          <p style={{ margin: '0 0 12px 0' }}>
+            Free chats left: {Math.max(GUEST_CHAT_LIMIT - guestQuestionCount, 0)}/{GUEST_CHAT_LIMIT}
+          </p>
+        ) : null}
         <div className="chat-history">
           {chatHistory.map((item, index) => (
             <div key={index} className={`message ${item.role}`}>
@@ -192,21 +223,28 @@ function Check() {
             type="text"
             value={userInput}
             onChange={handleChange}
-            placeholder="Enter your message"
+            placeholder={isGuestLimitReached ? 'Create an account to continue chatting' : 'Enter your message'}
+            disabled={isGuestLimitReached}
           />
-          <img src={list} className='microphone-btn' alt="" onClick={startListening} />
+          <img
+            src={list}
+            className='microphone-btn'
+            alt=""
+            onClick={() => !isGuestLimitReached && startListening()}
+            style={{ opacity: isGuestLimitReached ? 0.5 : 1, pointerEvents: isGuestLimitReached ? 'none' : 'auto' }}
+          />
          
           <img src={stop} className='stop-btn' alt="" onClick={stopListening} />
-          <button className='submit-btn' type="submit">Send</button>
+          <button className='submit-btn' type="submit" disabled={isGuestLimitReached}>Send</button>
         </form>
         <div className="transcript">{transcript}
         </div>
         <div className='cross-btn'>{transcript!==""?<img  src={cross} onClick={handleResetClick} alt="" />:<></>}
 </div>
       </div>
-      <div className="booking">
-      <Link to='/booking'><img src={book} alt="" /></Link>
-      </div>
+      {isGuestLimitReached ? (
+        <Link to='/login'><button>Create Account</button></Link>
+      ) : null}
     </div>
   );
 }

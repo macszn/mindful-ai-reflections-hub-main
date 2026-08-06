@@ -13,6 +13,48 @@
   margin: auto;
 }
 
+.crisis-support-banner {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #e57373;
+  border-radius: 8px;
+  background: #ffebee;
+  color: #5d1a1a;
+  font-size: 0.9rem;
+}
+
+.crisis-support-banner strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.crisis-support-banner ul {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+
+.crisis-support-banner button {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid #c62828;
+  border-radius: 4px;
+  background: transparent;
+  color: #c62828;
+  cursor: pointer;
+}
+
+.crisis-support-banner a {
+  color: #b71c1c;
+  font-weight: 600;
+}
+
+.memory-hint {
+  margin: 0 0 10px 0;
+  font-size: 0.85rem;
+  color: #2e7d32;
+  text-align: center;
+}
+
 .chat-history {
   height: 350px;
   overflow-y: scroll;

@@ -1,5 +1,6 @@
 import React from 'react'
 import './Footer.css';
+import { Bot } from 'lucide-react';
 
 function Footer() {
   return (
@@ -8,7 +9,7 @@ function Footer() {
         <h1>Contact Us</h1>
     <div className="container">
         <div className="name">
-            <p>WELLBOT</p>
+            <p className="brand-name"><Bot size={18} /> WELLBOT</p>
         </div>
         <div className="contact">
             <p>8542821917</p>
