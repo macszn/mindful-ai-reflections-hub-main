@@ -39,6 +39,26 @@ function scoreToStars(score) {
   return 1;
 }
 
+function wellnessLabel(score) {
+  if (score >= 85) return 'Thriving';
+  if (score >= 70) return 'Strong';
+  if (score >= 55) return 'Steady';
+  if (score >= 40) return 'Building';
+  return 'Needs care';
+}
+
+/** Push payload matching the Insights wellness score card. */
+function formatScoreNotification(computed) {
+  const label = wellnessLabel(computed.score);
+  const stars = '⭐'.repeat(computed.stars || scoreToStars(computed.score));
+  return {
+    title: `Your Mindful Progress Score: ${computed.score}/100`,
+    body: `${label} ${stars} — Try to maintain this level of wellness each day.`,
+    url: '/insights',
+    tag: 'Mindful-score',
+  };
+}
+
 function average(nums) {
   if (!nums.length) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
@@ -207,4 +227,6 @@ module.exports = {
   upsertTodayScore,
   getScoreHistory,
   scoreToStars,
+  wellnessLabel,
+  formatScoreNotification,
 };

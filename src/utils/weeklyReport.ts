@@ -1,29 +1,65 @@
 import { getApiBase, getStoredUser } from '@/utils/api';
 
+export type WeeklyActivityStats = {
+  journalEntries?: number;
+  conversations?: number;
+  activitiesCompleted?: number;
+  exerciseCompletions?: number;
+  articleCompletions?: number;
+  mediaCompletions?: number;
+};
+
 export type WeeklyReport = {
   _id: string;
   weekKey: string;
   weekStart: string;
   weekEnd: string;
+  tense?: 'this' | 'last';
+  finalized?: boolean;
   summary: string;
   emotionalSummary?: string;
   dominantMoods?: string[];
   stressTriggers?: string[];
   positiveImprovements?: string[];
   recommendations?: string[];
+  activityStats?: WeeklyActivityStats;
   seenAt?: string | null;
   generatedAt?: string;
 };
 
+export async function fetchCurrentWeeklyReport(): Promise<{
+  report: WeeklyReport | null;
+  weekKey?: string;
+  message?: string | null;
+}> {
+  const user = getStoredUser();
+  if (!user?.id) return { report: null };
+
+  const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}/current`);
+  if (!res.ok) throw new Error('Failed to load weekly report');
+  return res.json();
+}
+
+/** @deprecated Use fetchCurrentWeeklyReport */
 export async function fetchLatestWeeklyReport(): Promise<{
   report: WeeklyReport | null;
   unseen: boolean;
 }> {
-  const user = getStoredUser();
-  if (!user?.id) return { report: null, unseen: false };
+  const data = await fetchCurrentWeeklyReport();
+  return { report: data.report, unseen: false };
+}
 
-  const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}/latest`);
-  if (!res.ok) throw new Error('Failed to load weekly report');
+export async function fetchMondayModalReport(): Promise<{
+  show: boolean;
+  reason?: string;
+  report: WeeklyReport | null;
+  inMondayWindow?: boolean;
+}> {
+  const user = getStoredUser();
+  if (!user?.id) return { show: false, report: null };
+
+  const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}/monday-modal`);
+  if (!res.ok) throw new Error('Failed to load Monday report modal');
   return res.json();
 }
 
@@ -36,12 +72,29 @@ export async function markWeeklyReportSeen(reportId: string) {
   });
 }
 
-export async function fetchWeeklyReportHistory(limit = 8): Promise<WeeklyReport[]> {
+export async function fetchWeeklyReportHistory(limit = 16): Promise<{
+  reports: WeeklyReport[];
+  history: WeeklyReport[];
+  currentWeekKey?: string;
+}> {
   const user = getStoredUser();
-  if (!user?.id) return [];
+  if (!user?.id) return { reports: [], history: [] };
 
   const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}?limit=${limit}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.reports || [];
+  if (!res.ok) return { reports: [], history: [] };
+  return res.json();
+}
+
+export function formatWeekRange(report: WeeklyReport) {
+  try {
+    const start = new Date(report.weekStart);
+    const end = new Date(report.weekEnd);
+    const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, {
+      ...opts,
+      year: 'numeric',
+    })}`;
+  } catch {
+    return report.weekKey?.replace('-W', ' · Week ') || 'Weekly report';
+  }
 }

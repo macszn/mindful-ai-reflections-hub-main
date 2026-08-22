@@ -3,27 +3,12 @@ import { Link } from 'react-router-dom';
 import { Brain, ArrowRight, Shield, Clock, Zap, MessageSquare, BookOpen, BarChart4 } from 'lucide-react';
 import guidanceImg from '@/assets/guidance.jpg';
 import journalImg from '@/assets/journal.jpg';
+import logoImg from '@/assets/logo.jpg';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
-import { getRandomQuote } from '@/utils/quotes';
-
-const QUOTE_STORAGE_KEY = 'Mindful_quote_of_the_day';
-const QUOTE_TIMESTAMP_KEY = 'Mindful_quote_timestamp';
-
-const getStoredQuote = () => {
-  const quote = localStorage.getItem(QUOTE_STORAGE_KEY);
-  const timestamp = localStorage.getItem(QUOTE_TIMESTAMP_KEY);
-  if (quote && timestamp) {
-    return { quote: JSON.parse(quote), timestamp: parseInt(timestamp, 10) };
-  }
-  return null;
-};
-
-const setStoredQuote = (quote: { text: string; author: string }) => {
-  localStorage.setItem(QUOTE_STORAGE_KEY, JSON.stringify(quote));
-  localStorage.setItem(QUOTE_TIMESTAMP_KEY, Date.now().toString());
-};
+import { getQuoteOfTheDay } from '@/utils/quotes';
+import { getApiBase } from '@/utils/api';
 
 const FEATURES = [
   {
@@ -57,18 +42,22 @@ const Index = () => {
   const [quote, setQuote] = useState({ text: '', author: '' });
 
   useEffect(() => {
-    if (user) {
-      const stored = getStoredQuote();
-      const now = Date.now();
-      const DAY_MS = 24 * 60 * 60 * 1000;
-      if (stored && now - stored.timestamp < DAY_MS) {
-        setQuote(stored.quote);
-      } else {
-        const newQuote = getRandomQuote();
-        setQuote(newQuote);
-        setStoredQuote(newQuote);
+    if (!user) return;
+
+    const local = getQuoteOfTheDay();
+    setQuote(local);
+
+    const load = async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/api/notifications/quote-of-the-day`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.text) setQuote({ text: data.text, author: data.author });
+      } catch {
+        /* keep local quote-of-the-day */
       }
-    }
+    };
+    load();
   }, [user]);
 
   const showLoginNotice = () => {
@@ -270,8 +259,8 @@ const Index = () => {
                 </>
               )}
             </div>
-            <div className="bg-primary/10 p-8 rounded-full">
-              <Brain className="h-24 w-24 text-primary" />
+            <div className="bg-primary/10 p-4 rounded-full">
+              <img src={logoImg} alt="Mindful" className="h-24 w-24 rounded-full object-cover" />
             </div>
           </div>
         </div>

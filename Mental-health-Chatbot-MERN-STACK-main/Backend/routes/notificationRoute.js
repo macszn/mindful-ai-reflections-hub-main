@@ -1,15 +1,20 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { getPublicKey, isPushConfigured, sendToUser } = require('../lib/pushService');
-const { computeWellnessScore, upsertTodayScore } = require('../lib/wellnessScore');
-const { pickRandomQuote } = require('../lib/quotes');
-const { generateWeeklyReportForUser } = require('../lib/weeklyReport');
+const { computeWellnessScore, upsertTodayScore, formatScoreNotification } = require('../lib/wellnessScore');
+const { getQuoteOfTheDay, formatQuoteNotification } = require('../lib/quotes');
+const { finalizePreviousWeekReport } = require('../lib/weeklyReport');
+const { getJournalStreakStatus } = require('../lib/journalStreak');
 
 const router = express.Router();
 
 function getUsersModel() {
   return mongoose.model('Users');
 }
+
+router.get('/quote-of-the-day', (_req, res) => {
+  return res.json(getQuoteOfTheDay());
+});
 
 router.get('/vapid-public-key', (_req, res) => {
   if (!isPushConfigured()) {
@@ -62,6 +67,7 @@ router.post('/subscribe', async (req, res) => {
         quotes: preferences.quotes !== false,
         progressScore: preferences.progressScore !== false,
         weeklyReport: preferences.weeklyReport !== false,
+        streakReminder: preferences.streakReminder !== false,
         enabled: preferences.enabled !== false,
       };
     } else {
@@ -117,6 +123,7 @@ router.get('/preferences/:userId', async (req, res) => {
         quotes: true,
         progressScore: true,
         weeklyReport: true,
+        streakReminder: true,
       },
       deviceCount: (user.pushSubscriptions || []).length,
       pushConfigured: isPushConfigured(),
@@ -139,6 +146,7 @@ router.patch('/preferences/:userId', async (req, res) => {
       quotes: prefs.quotes !== false,
       progressScore: prefs.progressScore !== false,
       weeklyReport: prefs.weeklyReport !== false,
+      streakReminder: prefs.streakReminder !== false,
     };
     await user.save();
     return res.json({ preferences: user.notificationPrefs });
@@ -164,18 +172,22 @@ router.post('/test', async (req, res) => {
     if (type === 'score') {
       const computed = await computeWellnessScore(userId);
       await upsertTodayScore(userId, computed);
+      payload = formatScoreNotification(computed);
+    } else if (type === 'streak') {
+      const { currentStreak } = await getJournalStreakStatus(userId);
+      const streak = Math.max(currentStreak, 1);
       payload = {
-        title: 'Your MindCare Progress Score',
-        body: `Today's wellness score: ${computed.score}/100 (${'⭐'.repeat(computed.stars)})`,
-        url: '/insights',
-        tag: 'mindcare-score',
+        title: 'Keep your journal streak going',
+        body: `You're on a ${streak}-day streak! Log today's mood to keep the momentum.`,
+        url: '/journal',
+        tag: 'Mindful-streak',
       };
     } else if (type === 'weekly-report') {
-      const report = await generateWeeklyReportForUser(userId);
+      const report = await finalizePreviousWeekReport(userId);
       if (!report) {
         return res.status(200).json({
           success: false,
-          message: 'Not enough data to generate a weekly report yet.',
+          message: 'Not enough activity last week to generate a weekly report yet.',
         });
       }
       payload = {
@@ -186,13 +198,7 @@ router.post('/test', async (req, res) => {
         reportId: String(report._id),
       };
     } else {
-      const quote = pickRandomQuote();
-      payload = {
-        title: 'MindCare Daily Motivation',
-        body: `"${quote.text}" — ${quote.author}`,
-        url: '/',
-        tag: 'mindcare-quote',
-      };
+      payload = formatQuoteNotification(getQuoteOfTheDay());
     }
 
     const result = await sendToUser(user, payload);

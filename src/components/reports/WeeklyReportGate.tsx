@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import WeeklyReportModal from '@/components/reports/WeeklyReportModal';
 import {
-  fetchLatestWeeklyReport,
+  fetchMondayModalReport,
   markWeeklyReportSeen,
   type WeeklyReport,
 } from '@/utils/weeklyReport';
 
+/**
+ * Shows the finalized PREVIOUS-week report only on Monday at/after 8:00 AM,
+ * and only until the user dismisses it (seenAt).
+ */
 const WeeklyReportGate = () => {
   const { user } = useAuth();
   const [report, setReport] = useState<WeeklyReport | null>(null);
@@ -19,15 +23,12 @@ const WeeklyReportGate = () => {
 
     const load = async () => {
       try {
-        const { report: latest, unseen } = await fetchLatestWeeklyReport();
-        if (cancelled || !latest) return;
-
-        setReport(latest);
-        if (unseen) {
-          setOpen(true);
-        }
+        const data = await fetchMondayModalReport();
+        if (cancelled || !data.show || !data.report) return;
+        setReport(data.report);
+        setOpen(true);
       } catch (err) {
-        console.error('Weekly report check failed:', err);
+        console.error('Monday weekly report check failed:', err);
       }
     };
 
@@ -53,6 +54,7 @@ const WeeklyReportGate = () => {
         else setOpen(true);
       }}
       onDismiss={handleDismiss}
+      variant="last-week"
     />
   );
 };

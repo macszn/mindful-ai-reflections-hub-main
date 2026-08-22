@@ -74,6 +74,23 @@ export const quotes = [
   }
 ];
 
-export const getRandomQuote = () => {
-  return quotes[Math.floor(Math.random() * quotes.length)];
+function utcDateKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function quoteIndexForDate(key: string, length: number) {
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return hash % length;
+}
+
+/** Same quote the Home screen and quote notifications use for a given UTC day. */
+export const getQuoteOfTheDay = (date = new Date()) => {
+  const dateKey = utcDateKey(date);
+  const quote = quotes[quoteIndexForDate(dateKey, quotes.length)];
+  return { ...quote, date: dateKey };
 };
+
+export const getRandomQuote = () => getQuoteOfTheDay();

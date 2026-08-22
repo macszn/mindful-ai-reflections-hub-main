@@ -1,6 +1,7 @@
 
 import { Link } from 'react-router-dom';
-import { Heart, Mail, Phone, MapPin, Bot } from 'lucide-react';
+import { Heart, Mail, Phone, MapPin } from 'lucide-react';
+import Logo from './Logo';
 
 const Footer = () => {
   return (
@@ -8,12 +9,7 @@ const Footer = () => {
       <div className="container-custom">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
-                <Bot className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-bold text-xl">Mindful</span>
-            </Link>
+            <Logo />
             <p className="text-sm text-muted-foreground mt-4">
               Empowering mental wellness through AI-powered conversations, mood tracking, and personalized insights.
             </p>
@@ -50,7 +46,7 @@ const Footer = () => {
               <li><Link to="/faq" className="text-foreground/70 hover:text-primary transition-colors">FAQ</Link></li>
               <li><Link to="/privacy" className="text-foreground/70 hover:text-primary transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="text-foreground/70 hover:text-primary transition-colors">Terms of Service</Link></li>
-              <li><a href="#" className="text-foreground/70 hover:text-primary transition-colors">Contact Us</a></li>
+              <li><a href="mailto:mindfuldevsupport@gmail.com" className="text-foreground/70 hover:text-primary transition-colors">Contact Us</a></li>
             </ul>
           </div>
           
@@ -67,7 +63,7 @@ const Footer = () => {
               </li>
               <li className="flex items-center space-x-2">
                 <Mail className="w-5 h-5 text-primary" />
-                <span className="text-sm text-foreground/70">markaddo143@gmail.com</span>
+                <span className="text-sm text-foreground/70">mindfuldevsupport@gmail.com</span>
               </li>
             </ul>
           </div>

@@ -67,6 +67,7 @@ export type NotificationPreferences = {
   quotes: boolean;
   progressScore: boolean;
   weeklyReport?: boolean;
+  streakReminder?: boolean;
 };
 
 export async function fetchNotificationStatus() {
@@ -178,7 +179,9 @@ export async function disablePushNotifications() {
   });
 }
 
-export async function sendTestNotification(type: 'quote' | 'score' | 'weekly-report' = 'quote') {
+export async function sendTestNotification(
+  type: 'quote' | 'score' | 'weekly-report' | 'streak' = 'quote'
+) {
   const user = getStoredUser();
   if (!user?.id) throw new Error('Please log in');
 
@@ -188,9 +191,12 @@ export async function sendTestNotification(type: 'quote' | 'score' | 'weekly-rep
     body: JSON.stringify({ userId: user.id, type }),
   });
 
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Failed to send test notification');
+    throw new Error(data.error || 'Failed to send test notification');
   }
-  return res.json();
+  if (data.success === false) {
+    throw new Error(data.message || 'Test notification was not sent');
+  }
+  return data;
 }

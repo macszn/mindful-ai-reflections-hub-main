@@ -30,8 +30,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Mindful', {
       body: data.body,
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: '/logo.jpg',
+      badge: '/logo.jpg',
       tag: data.tag || 'Mindful',
       data: { url: data.url || '/' },
       renotify: true,

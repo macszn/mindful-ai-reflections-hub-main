@@ -12,7 +12,11 @@ import WellnessScoreCard, { type WellnessScoreData } from '@/components/insights
 import NotificationSettingsCard from '@/components/insights/NotificationSettingsCard';
 import WeeklyReportCard from '@/components/insights/WeeklyReportCard';
 import { getApiBase } from '@/utils/api';
-import { fetchLatestWeeklyReport, type WeeklyReport } from '@/utils/weeklyReport';
+import {
+  fetchCurrentWeeklyReport,
+  fetchWeeklyReportHistory,
+  type WeeklyReport,
+} from '@/utils/weeklyReport';
 
 type InsightRecommendation = {
   title: string;
@@ -30,6 +34,7 @@ const InsightsPage = () => {
   const [wellness, setWellness] = useState<WellnessScoreData | null>(null);
   const [wellnessLoading, setWellnessLoading] = useState(false);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const [weeklyReportHistory, setWeeklyReportHistory] = useState<WeeklyReport[]>([]);
   const [weeklyReportLoading, setWeeklyReportLoading] = useState(false);
 
   useEffect(() => {
@@ -122,8 +127,12 @@ const InsightsPage = () => {
     const fetchWeeklyReport = async () => {
       setWeeklyReportLoading(true);
       try {
-        const { report } = await fetchLatestWeeklyReport();
-        setWeeklyReport(report);
+        const [current, hist] = await Promise.all([
+          fetchCurrentWeeklyReport(),
+          fetchWeeklyReportHistory(16),
+        ]);
+        setWeeklyReport(current.report);
+        setWeeklyReportHistory(hist.history?.length ? hist.history : hist.reports || []);
       } catch (error) {
         console.error('Failed to fetch weekly report:', error);
         setWeeklyReport(null);
@@ -189,7 +198,11 @@ const InsightsPage = () => {
       </div>
 
       <WellnessScoreCard data={wellness} loading={wellnessLoading} />
-      <WeeklyReportCard report={weeklyReport} loading={weeklyReportLoading} />
+      <WeeklyReportCard
+        report={weeklyReport}
+        history={weeklyReportHistory}
+        loading={weeklyReportLoading}
+      />
       <NotificationSettingsCard />
 
       {/* Stats overview */}

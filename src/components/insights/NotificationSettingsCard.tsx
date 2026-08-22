@@ -74,7 +74,9 @@ const NotificationSettingsCard = () => {
     }
   };
 
-  const handleTest = async (type: 'quote' | 'score' | 'weekly-report') => {
+  const handleTest = async (
+    type: 'quote' | 'score' | 'weekly-report' | 'streak'
+  ) => {
     setBusy(true);
     try {
       await sendTestNotification(type);
@@ -83,7 +85,9 @@ const NotificationSettingsCard = () => {
           ? 'Motivational quote sent'
           : type === 'score'
             ? 'Progress score sent'
-            : 'Weekly report notification sent'
+            : type === 'weekly-report'
+              ? 'Weekly report notification sent'
+              : 'Streak reminder sent'
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Test notification failed');
@@ -100,7 +104,7 @@ const NotificationSettingsCard = () => {
           Device notifications
         </CardTitle>
         <CardDescription>
-          Get daily motivational quotes, weekly mental health reports, and wellness progress scores on this device.
+          Get daily motivational quotes, weekly mental health reports, wellness progress scores, and streak reminders on this device.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
@@ -134,10 +138,13 @@ const NotificationSettingsCard = () => {
                 <Button variant="secondary" disabled={busy} onClick={() => handleTest('weekly-report')}>
                   Test weekly report
                 </Button>
+                <Button variant="secondary" disabled={busy} onClick={() => handleTest('streak')}>
+                  Test streak reminder
+                </Button>
               </>
             )}
             <span className="text-xs text-muted-foreground">
-              {deviceCount} device{deviceCount === 1 ? '' : 's'} registered · quotes daily · weekly report Mon · score Mon
+              {deviceCount} device{deviceCount === 1 ? '' : 's'} registered · quotes daily · score Mon · weekly report Mon · streak reminders
             </span>
           </>
         )}

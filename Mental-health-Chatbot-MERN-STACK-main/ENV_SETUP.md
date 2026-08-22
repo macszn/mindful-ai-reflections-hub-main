@@ -15,6 +15,8 @@ API_KEY=your_gemini_api_key
 
 # JWT Secret for Authentication
 JWT_SECRET=your_jwt_secret
+ # Google OAuth Web Client ID (for Continue with Google)
+ GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
 
 # Port for Backend Server
 PORT=4000
@@ -22,10 +24,7 @@ PORT=4000
 
 ### Variable Descriptions:
 
-- **MONGODB_URI**: Your MongoDB connection string. You can get this from MongoDB Atlas or your MongoDB hosting provider.
-- **API_KEY**: Gemini AI API key from Google's Generative AI service. Get this at [Google AI Studio](https://makersuite.google.com/app/apikey).
-- **JWT_SECRET**: A secret key used for signing and verifying JSON Web Tokens for authentication. This can be any random string, but it's recommended to use a long, complex string for security purposes.
-- **PORT**: The port on which the backend server will run.
+- **GOOGLE_CLIENT_ID**: The client ID for a Google OAuth client of type **Web application**. The backend uses it to verify Google ID tokens.
 
 ## Frontend Environment Variables
 
@@ -55,6 +54,15 @@ REACT_APP_API_URL=http://localhost:4000
 2. Ensure the `.env` files are included in your `.gitignore` file.
 3. When deploying to production, set these environment variables in your hosting platform's configuration rather than relying on `.env` files.
 4. For local development, you need to restart the server after changing environment variables.
+
+## Enabling Google Sign-In
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create or select a project.
+2. Configure the OAuth consent screen, then create an OAuth client ID for a **Web application**.
+3. Add the frontend origin to **Authorized JavaScript origins** (for example, `http://localhost:8080`).
+4. Put the client ID in `Backend/.env` as `GOOGLE_CLIENT_ID` and restart the backend.
+
+The Login and Register pages will then show the working **Continue with Google** flow. New Google accounts are created automatically, and existing accounts are matched by email.
 
 ## Getting API Keys
 

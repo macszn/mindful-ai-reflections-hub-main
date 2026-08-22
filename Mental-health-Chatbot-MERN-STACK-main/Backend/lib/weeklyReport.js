@@ -2,9 +2,9 @@ const moment = require('moment');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const MoodEntry = require('../models/MoodEntry');
 const ActivityCompletion = require('../models/ActivityCompletion');
+const ChatExchange = require('../models/ChatExchange');
 const WeeklyReport = require('../models/WeeklyReport');
 const UserMemory = require('../models/UserMemory');
-const { buildMemoryContext } = require('./memoryService');
 const { computeWellnessScore } = require('./wellnessScore');
 
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -20,6 +20,7 @@ const MOOD_SCORE = {
   excited: 5,
 };
 
+/** Monday 00:00:00 → Sunday 23:59:59.999 (ISO week) */
 function getWeekBounds(reference = moment()) {
   const weekStart = reference.clone().startOf('isoWeek');
   const weekEnd = reference.clone().endOf('isoWeek');
@@ -28,8 +29,14 @@ function getWeekBounds(reference = moment()) {
 }
 
 function getPreviousWeekBounds(reference = moment()) {
-  const prev = reference.clone().subtract(1, 'week');
-  return getWeekBounds(prev);
+  return getWeekBounds(reference.clone().subtract(1, 'week'));
+}
+
+/**
+ * Monday modal window: Monday at/after 08:00 local server time through end of Monday.
+ */
+function isMondayModalWindow(now = moment()) {
+  return now.isoWeekday() === 1 && now.hour() >= 8;
 }
 
 function dominantMoods(entries) {
@@ -51,14 +58,14 @@ function avgMood(entries) {
   return total / entries.length;
 }
 
-function moodDeltaPct(thisWeek, lastWeek) {
-  const thisAnxious = thisWeek.filter((e) => String(e.mood).toLowerCase() === 'anxious').length;
-  const lastAnxious = lastWeek.filter((e) => String(e.mood).toLowerCase() === 'anxious').length;
-  if (lastAnxious === 0) return null;
-  return Math.round(((lastAnxious - thisAnxious) / lastAnxious) * 100);
+function moodDeltaPct(weekEntries, compareEntries, moodName) {
+  const a = weekEntries.filter((e) => String(e.mood).toLowerCase() === moodName).length;
+  const b = compareEntries.filter((e) => String(e.mood).toLowerCase() === moodName).length;
+  if (b === 0) return null;
+  return Math.round(((b - a) / b) * 100);
 }
 
-function topStressTriggers(memory, thisWeekEntries) {
+function extractStressTriggers(journalEntries, chatMessages, memory) {
   const triggers = [];
   if (memory?.triggers?.length) {
     triggers.push(
@@ -68,41 +75,104 @@ function topStressTriggers(memory, thisWeekEntries) {
         .map((t) => t.label)
     );
   }
-  const text = thisWeekEntries.map((e) => `${e.content} ${(e.tags || []).join(' ')}`).join(' ').toLowerCase();
-  if (/exam|coursework|study|school|academic|assignment/.test(text)) {
-    triggers.push('Academic workload');
+
+  const text = [
+    ...journalEntries.map((e) => `${e.content || ''} ${(e.tags || []).join(' ')}`),
+    ...chatMessages.map((m) => m.userMessage || m.content || ''),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  if (/exam|coursework|study|school|academic|assignment/.test(text)) triggers.push('Academic workload');
+  if (/work|job|deadline|boss|office/.test(text)) triggers.push('Work pressure');
+  if (/sleep|insomnia|tired|exhausted/.test(text)) triggers.push('Sleep difficulties');
+  if (/relationship|partner|boyfriend|girlfriend|spouse|breakup/.test(text)) {
+    triggers.push('Relationship stress');
   }
-  if (/work|job|deadline|boss/.test(text)) {
-    triggers.push('Work pressure');
-  }
-  if (/sleep|insomnia|tired/.test(text)) {
-    triggers.push('Sleep difficulties');
-  }
+  if (/family|parent|mother|father|sibling/.test(text)) triggers.push('Family stress');
+  if (/anxious|anxiety|panic|worried/.test(text)) triggers.push('Anxiety');
+
   return [...new Set(triggers)].slice(0, 4);
 }
 
-function buildFallbackReport({ thisWeek, lastWeek, memory, wellness, activitiesCount }) {
-  const moods = dominantMoods(thisWeek);
-  const triggers = topStressTriggers(memory, thisWeek);
-  const anxiousDelta = moodDeltaPct(thisWeek, lastWeek);
-  const avgThis = avgMood(thisWeek);
-  const avgLast = avgMood(lastWeek);
+function buildActivityStats({ journals, chats, activities }) {
+  const byCategory = { exercise: 0, article: 0, media: 0, other: 0 };
+  for (const a of activities) {
+    const cat = a.category || 'other';
+    byCategory[cat] = (byCategory[cat] || 0) + 1;
+  }
+  return {
+    journalEntries: journals.length,
+    conversations: chats.length,
+    activitiesCompleted: activities.length,
+    exerciseCompletions: byCategory.exercise || 0,
+    articleCompletions: byCategory.article || 0,
+    mediaCompletions: byCategory.media || 0,
+  };
+}
+
+function activitySentence(stats, tense) {
+  const prefix = tense === 'last' ? 'Last week, you did' : 'This week, you did';
+  const parts = [];
+  if (stats.journalEntries > 0) {
+    parts.push(
+      `${stats.journalEntries} mood journal ${stats.journalEntries === 1 ? 'entry' : 'entries'}`
+    );
+  }
+  if (stats.conversations > 0) {
+    parts.push(
+      `${stats.conversations} ${stats.conversations === 1 ? 'conversation' : 'conversations'} with Mindful`
+    );
+  }
+  if (stats.exerciseCompletions > 0) {
+    parts.push(
+      `${stats.exerciseCompletions} wellness ${stats.exerciseCompletions === 1 ? 'exercise' : 'exercises'}`
+    );
+  } else if (stats.activitiesCompleted > 0) {
+    parts.push(
+      `${stats.activitiesCompleted} wellness ${stats.activitiesCompleted === 1 ? 'activity' : 'activities'}`
+    );
+  }
+
+  if (!parts.length) {
+    return tense === 'last'
+      ? 'Last week, there was limited tracked activity in Mindful.'
+      : 'This week, you are just getting started in Mindful.';
+  }
+
+  if (parts.length === 1) return `${prefix} ${parts[0]}.`;
+  if (parts.length === 2) return `${prefix} ${parts[0]} and ${parts[1]}.`;
+  return `${prefix} ${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}.`;
+}
+
+function buildFallbackReport({ journals, priorJournals, chats, activities, memory, wellness, tense }) {
+  const stats = buildActivityStats({ journals, chats, activities });
+  const moods = dominantMoods(journals);
+  const triggers = extractStressTriggers(journals, chats, memory);
+  const anxiousDelta = moodDeltaPct(journals, priorJournals, 'anxious');
+  const avgThis = avgMood(journals);
+  const avgPrior = avgMood(priorJournals);
+  const weekWord = tense === 'last' ? 'Last week' : 'This week';
 
   const positiveImprovements = [];
   if (anxiousDelta != null && anxiousDelta > 0) {
-    positiveImprovements.push(`Anxiety-related entries decreased by ${anxiousDelta}% compared to last week.`);
+    positiveImprovements.push(
+      `Anxiety-related journal entries decreased by ${anxiousDelta}% compared to the prior week.`
+    );
   }
-  if (avgLast > 0 && avgThis > avgLast + 0.3) {
-    positiveImprovements.push('Your average journal mood improved compared to last week.');
+  if (avgPrior > 0 && avgThis > avgPrior + 0.3) {
+    positiveImprovements.push('Average journal mood improved compared to the prior week.');
   }
-  if (activitiesCount >= 2) {
-    positiveImprovements.push(`You completed ${activitiesCount} wellness activities this week — great consistency.`);
+  if (stats.exerciseCompletions >= 2) {
+    positiveImprovements.push(
+      `You completed ${stats.exerciseCompletions} wellness exercises — solid consistency.`
+    );
   }
   if (wellness?.score >= 70) {
-    positiveImprovements.push(`Your wellness score is ${wellness.score}/100 — keep up the momentum.`);
+    positiveImprovements.push(`Your wellness score is ${wellness.score}/100.`);
   }
-  if (!positiveImprovements.length && thisWeek.length) {
-    positiveImprovements.push('You showed up for yourself by journaling this week.');
+  if (!positiveImprovements.length && (stats.journalEntries || stats.conversations)) {
+    positiveImprovements.push('You showed up for yourself by checking in with Mindful.');
   }
 
   const recommendations = [];
@@ -110,44 +180,31 @@ function buildFallbackReport({ thisWeek, lastWeek, memory, wellness, activitiesC
     recommendations.push('Try a 5-minute breathing break between study or work blocks.');
   }
   if (moods.includes('anxious') || moods.includes('tired')) {
-    recommendations.push('Consider maintaining an evening mindfulness or wind-down routine.');
-  }
-  if (memory?.goals?.length) {
-    const activeGoal = memory.goals.find((g) => g.status === 'active');
-    if (activeGoal) recommendations.push(`Keep working toward your goal: "${activeGoal.text.slice(0, 80)}".`);
+    recommendations.push('Consider keeping an evening wind-down or mindfulness routine.');
   }
   if (!recommendations.length) {
-    recommendations.push('Continue journaling and check in with MindCare when you need support.');
+    recommendations.push('Continue journaling and chatting when you need practical support.');
   }
 
-  const primaryTrigger = triggers[0] || 'everyday stressors';
-  const improvementLine =
-    positiveImprovements[0] ||
-    (thisWeek.length ? 'Your emotional patterns are becoming clearer with regular journaling.' : '');
+  const lead = activitySentence(stats, tense);
+  const extra = [];
+  if (moods.length) extra.push(`Dominant moods: ${moods.join(', ')}`);
+  if (triggers[0]) extra.push(`${triggers[0]} showed up as a notable stress factor`);
+  if (recommendations[0]) extra.push(recommendations[0].replace(/\.$/, ''));
 
-  const summaryParts = [];
-  if (improvementLine) summaryParts.push(improvementLine.replace(/\.$/, ''));
-  if (triggers.length) {
-    summaryParts.push(`${primaryTrigger} remains a primary stress factor this week`);
-  }
-  if (recommendations[0]) {
-    summaryParts.push(recommendations[0].replace(/\.$/, ''));
-  }
-
-  const summary =
-    summaryParts.length >= 2
-      ? `${summaryParts[0]}. ${summaryParts[1]}. ${summaryParts[2] || recommendations[0]}.`
-      : summaryParts.join('. ') + (summaryParts.length ? '.' : 'Your weekly mental health report is ready.');
+  const summary = [lead.replace(/\.$/, ''), ...extra].filter(Boolean).join('. ') + '.';
 
   return {
     summary,
-    emotionalSummary: thisWeek.length
-      ? `This week you logged ${thisWeek.length} journal entries with dominant moods: ${moods.join(', ') || 'mixed'}.`
-      : 'Limited journal data this week — more entries will sharpen your weekly insights.',
+    emotionalSummary: journals.length
+      ? `${weekWord} you logged ${journals.length} journal ${journals.length === 1 ? 'entry' : 'entries'} with dominant moods: ${moods.join(', ') || 'mixed'}.`
+      : `${weekWord} journal activity was limited — chatting and resources still count toward your report.`,
     dominantMoods: moods,
     stressTriggers: triggers,
     positiveImprovements,
     recommendations: recommendations.slice(0, 3),
+    activityStats: stats,
+    tense,
   };
 }
 
@@ -169,112 +226,244 @@ function parseReportJson(text) {
   };
 }
 
-async function gatherWeekData(userId, weekStart, weekEnd) {
-  const prevStart = weekStart.clone().subtract(1, 'week');
-  const prevEnd = weekEnd.clone().subtract(1, 'week');
+async function gatherWeekActivity(userId, weekStart, weekEnd) {
+  const priorStart = weekStart.clone().subtract(1, 'week');
+  const priorEnd = weekEnd.clone().subtract(1, 'week');
 
-  const [thisWeek, lastWeek, memory, memoryContext, activitiesCount, wellness] = await Promise.all([
+  const [journals, priorJournals, chats, activities, memory, wellness] = await Promise.all([
     MoodEntry.find({
       userId,
       date: { $gte: weekStart.toDate(), $lte: weekEnd.toDate() },
     }).lean(),
     MoodEntry.find({
       userId,
-      date: { $gte: prevStart.toDate(), $lte: prevEnd.toDate() },
+      date: { $gte: priorStart.toDate(), $lte: priorEnd.toDate() },
     }).lean(),
-    UserMemory.findOne({ userId }).lean(),
-    buildMemoryContext(userId).catch(() => ({ text: '' })),
-    ActivityCompletion.countDocuments({
+    ChatExchange.find({
+      userId,
+      recordedAt: { $gte: weekStart.toDate(), $lte: weekEnd.toDate() },
+    })
+      .sort({ recordedAt: -1 })
+      .limit(80)
+      .lean(),
+    ActivityCompletion.find({
       userId,
       completedAt: { $gte: weekStart.toDate(), $lte: weekEnd.toDate() },
-    }),
+    }).lean(),
+    UserMemory.findOne({ userId }).lean(),
     computeWellnessScore(userId).catch(() => null),
   ]);
 
-  return {
-    thisWeek,
-    lastWeek,
-    memory,
-    memoryContext: memoryContext?.text || '',
-    activitiesCount,
-    wellness,
-  };
+  return { journals, priorJournals, chats, activities, memory, wellness };
 }
 
-async function generateReportContent(userId, weekStart, weekEnd) {
-  const data = await gatherWeekData(userId, weekStart, weekEnd);
+async function generateReportContent(userId, weekStart, weekEnd, tense = 'this') {
+  const data = await gatherWeekActivity(userId, weekStart, weekEnd);
+  const stats = buildActivityStats({
+    journals: data.journals,
+    chats: data.chats,
+    activities: data.activities,
+  });
 
-  if (!data.thisWeek.length && !data.lastWeek.length && !data.memoryContext.trim()) {
+  const hasAny =
+    stats.journalEntries > 0 || stats.conversations > 0 || stats.activitiesCompleted > 0;
+
+  if (!hasAny) {
     return null;
   }
 
+  const payload = { ...data, tense, stats };
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    return buildFallbackReport(data);
+    return buildFallbackReport(payload);
   }
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const weekPhrase = tense === 'last' ? 'Last week' : 'This week';
+    const activityLead = activitySentence(stats, tense);
 
-    const prompt = `You are MindCare, a compassionate mental health companion. Write a weekly mental health report for the user based ONLY on the data below.
+    const prompt = `You are Mindful, a compassionate mental health companion. Write a weekly mental health report based ONLY on the structured ACTIVITY DATA below.
 
-Return ONLY valid JSON (no markdown) in this shape:
+CRITICAL RULES:
+- Use the exact counts from ACTIVITY DATA. Do NOT invent journals, chats, exercises, moods, or events.
+- Start the "summary" with wording like "${weekPhrase}, you did..." reflecting the real counts (you may refine the provided lead sentence slightly for fluency, but keep all numbers accurate).
+- Do not claim activities that are zero.
+- Stay warm, concise, and actionable.
+
+Return ONLY valid JSON (no markdown):
 {
-  "summary": "2-3 sentences in plain language like: This week, anxiety-related entries decreased by 15%. Academic workload remains your primary stress factor. Consider maintaining your evening mindfulness routine.",
-  "emotionalSummary": "1-2 sentences describing overall emotional tone this week",
-  "dominantMoods": ["mood1", "mood2"],
-  "stressTriggers": ["trigger1", "trigger2"],
-  "positiveImprovements": ["improvement1", "improvement2"],
-  "recommendations": ["recommendation1", "recommendation2"]
+  "summary": "2-4 sentences starting with ${weekPhrase.toLowerCase()} activity counts, then emotional patterns and one practical tip",
+  "emotionalSummary": "1-2 sentences on emotional tone based only on journal moods / chat snippets",
+  "dominantMoods": ["mood1"],
+  "stressTriggers": ["trigger1"],
+  "positiveImprovements": ["fact-based improvement"],
+  "recommendations": ["practical recommendation"]
 }
 
-Week: ${weekStart.format('MMM D')} – ${weekEnd.format('MMM D, YYYY')}
-This week journal entries (${data.thisWeek.length}): ${JSON.stringify(
-      data.thisWeek.slice(0, 20).map((e) => ({
+Period: ${weekStart.format('MMM D')} – ${weekEnd.format('MMM D, YYYY')} (Monday–Sunday)
+Tense: ${tense} (${weekPhrase})
+
+ACTIVITY DATA (authoritative counts):
+${JSON.stringify(stats)}
+
+Suggested opening sentence (numbers are correct — keep them):
+${activityLead}
+
+Journal entries this period (${data.journals.length}): ${JSON.stringify(
+      data.journals.slice(0, 25).map((e) => ({
         date: moment(e.date).format('YYYY-MM-DD'),
         mood: e.mood,
         tags: e.tags,
-        content: String(e.content || '').slice(0, 300),
+        content: String(e.content || '').slice(0, 280),
       }))
     )}
-Last week journal entries (${data.lastWeek.length}): ${JSON.stringify(
-      data.lastWeek.slice(0, 15).map((e) => ({ mood: e.mood, content: String(e.content || '').slice(0, 200) }))
-    )}
-Activities completed this week: ${data.activitiesCount}
-Wellness score: ${data.wellness ? `${data.wellness.score}/100` : 'n/a'}
-User memory context:
-${data.memoryContext.slice(0, 2500) || 'None'}
 
-Be specific, warm, and actionable. Use percentages when comparing weeks if data supports it.`;
+Chat conversations this period (${data.chats.length}): ${JSON.stringify(
+      data.chats.slice(0, 25).map((c) => ({
+        date: moment(c.recordedAt).format('YYYY-MM-DD'),
+        userMessage: String(c.userMessage || '').slice(0, 250),
+      }))
+    )}
+
+Resources / exercises completed (${data.activities.length}): ${JSON.stringify(
+      data.activities.slice(0, 20).map((a) => ({
+        title: a.activityTitle || a.activityId,
+        category: a.category,
+        date: moment(a.completedAt).format('YYYY-MM-DD'),
+      }))
+    )}
+
+Prior-week journal count for comparison only: ${data.priorJournals.length}
+Wellness score (optional context): ${data.wellness ? `${data.wellness.score}/100` : 'n/a'}
+Known memory triggers (optional): ${(data.memory?.triggers || [])
+      .slice(0, 5)
+      .map((t) => t.label)
+      .join(', ') || 'none'}`;
 
     const result = await model.generateContent(prompt);
     const parsed = parseReportJson(result.response.text());
     if (!parsed.summary) throw new Error('Empty AI summary');
-    return parsed;
+
+    // Ensure summary leads with real counts if the model drifted
+    if (!/\d+/.test(parsed.summary) && (stats.journalEntries || stats.conversations || stats.activitiesCompleted)) {
+      parsed.summary = `${activityLead} ${parsed.summary}`;
+    }
+
+    return {
+      ...parsed,
+      activityStats: stats,
+      tense,
+    };
   } catch (err) {
     console.error('[weeklyReport] AI generation failed, using fallback:', err.message);
-    return buildFallbackReport(data);
+    return buildFallbackReport(payload);
   }
 }
 
-async function generateWeeklyReportForUser(userId, referenceDate = moment()) {
-  const { weekStart, weekEnd, weekKey } = getWeekBounds(referenceDate);
-
+/**
+ * Regenerate (or create) the report for a given week. Current-week reports stay unfinalized
+ * and are overwritten on each Insights visit. Finalized prior-week reports are left alone unless force.
+ */
+async function upsertWeeklyReport(userId, { weekStart, weekEnd, weekKey, tense, finalize = false, force = false }) {
   const existing = await WeeklyReport.findOne({ userId, weekKey });
-  if (existing) return existing;
+  if (existing?.finalized && !force) {
+    return existing;
+  }
 
-  const content = await generateReportContent(userId, weekStart, weekEnd);
-  if (!content) return null;
+  const content = await generateReportContent(userId, weekStart, weekEnd, tense);
+  if (!content) {
+    if (existing && !existing.finalized) {
+      // Clear thin weeks? Keep prior draft if any activity was removed — regenerate empty as null
+      return null;
+    }
+    return null;
+  }
 
-  return WeeklyReport.create({
+  const doc = {
     userId,
     weekKey,
     weekStart: weekStart.toDate(),
     weekEnd: weekEnd.toDate(),
-    ...content,
-    seenAt: null,
+    tense: content.tense || tense,
+    finalized: Boolean(finalize),
+    summary: content.summary,
+    emotionalSummary: content.emotionalSummary || '',
+    dominantMoods: content.dominantMoods || [],
+    stressTriggers: content.stressTriggers || [],
+    positiveImprovements: content.positiveImprovements || [],
+    recommendations: content.recommendations || [],
+    activityStats: content.activityStats || {},
+    generatedAt: new Date(),
+  };
+
+  // Preserve seenAt for finalized Monday reports that were already viewed
+  if (existing?.seenAt && finalize) {
+    doc.seenAt = existing.seenAt;
+  } else if (!finalize) {
+    // Current-week live report: don't drive the Monday modal
+    doc.seenAt = existing?.seenAt || null;
+  }
+
+  return WeeklyReport.findOneAndUpdate(
+    { userId, weekKey },
+    { $set: doc },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+}
+
+/** Insights: always refresh the in-progress current week ("This week, you did...") */
+async function refreshCurrentWeekReport(userId) {
+  const { weekStart, weekEnd, weekKey } = getWeekBounds();
+  return upsertWeeklyReport(userId, {
+    weekStart,
+    weekEnd,
+    weekKey,
+    tense: 'this',
+    finalize: false,
+    force: true,
   });
+}
+
+/** Monday cron / modal: finalize previous Monday–Sunday with "Last week, you did..." */
+async function finalizePreviousWeekReport(userId) {
+  const { weekStart, weekEnd, weekKey } = getPreviousWeekBounds();
+  return upsertWeeklyReport(userId, {
+    weekStart,
+    weekEnd,
+    weekKey,
+    tense: 'last',
+    finalize: true,
+    force: false,
+  });
+}
+
+/**
+ * For Monday popup: return previous week's finalized report only in the Monday ≥8:00 window,
+ * and only if not yet seen.
+ */
+async function getMondayModalReport(userId, now = moment()) {
+  if (!isMondayModalWindow(now)) {
+    return { report: null, show: false, reason: 'outside_monday_window' };
+  }
+
+  const { weekKey } = getPreviousWeekBounds(now);
+  let report = await WeeklyReport.findOne({ userId, weekKey });
+
+  if (!report || !report.finalized) {
+    report = await finalizePreviousWeekReport(userId);
+  }
+
+  if (!report) {
+    return { report: null, show: false, reason: 'no_activity' };
+  }
+
+  if (report.seenAt) {
+    return { report: report.toObject?.() || report, show: false, reason: 'already_seen' };
+  }
+
+  return { report: report.toObject?.() || report, show: true, reason: 'ready' };
 }
 
 async function getLatestReport(userId) {
@@ -293,12 +482,29 @@ async function getReportHistory(userId, limit = 12) {
   return WeeklyReport.find({ userId }).sort({ weekStart: -1 }).limit(limit).lean();
 }
 
+/** @deprecated Prefer refreshCurrentWeekReport / finalizePreviousWeekReport */
+async function generateWeeklyReportForUser(userId, referenceDate = moment()) {
+  const bounds = getWeekBounds(referenceDate);
+  const isCurrent = bounds.weekKey === getWeekBounds().weekKey;
+  return upsertWeeklyReport(userId, {
+    ...bounds,
+    tense: isCurrent ? 'this' : 'last',
+    finalize: !isCurrent,
+    force: isCurrent,
+  });
+}
+
 module.exports = {
   getWeekBounds,
   getPreviousWeekBounds,
+  isMondayModalWindow,
+  refreshCurrentWeekReport,
+  finalizePreviousWeekReport,
+  getMondayModalReport,
   generateWeeklyReportForUser,
   generateReportContent,
   getLatestReport,
   markReportSeen,
   getReportHistory,
+  activitySentence,
 };

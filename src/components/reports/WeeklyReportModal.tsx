@@ -10,22 +10,33 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, TrendingUp, AlertCircle, Lightbulb } from 'lucide-react';
 import type { WeeklyReport } from '@/utils/weeklyReport';
+import { formatWeekRange } from '@/utils/weeklyReport';
 
 type Props = {
   report: WeeklyReport | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDismiss: () => void;
+  variant?: 'last-week' | 'this-week';
 };
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const WeeklyReportModal = ({ report, open, onOpenChange, onDismiss }: Props) => {
+const WeeklyReportModal = ({
+  report,
+  open,
+  onOpenChange,
+  onDismiss,
+  variant = 'last-week',
+}: Props) => {
   if (!report) return null;
 
-  const weekLabel = report.weekKey?.replace('-W', ' · Week ') || 'This week';
+  const title =
+    variant === 'last-week' || report.tense === 'last'
+      ? 'Last week’s mental health report'
+      : 'This week’s mental health report';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -33,16 +44,41 @@ const WeeklyReportModal = ({ report, open, onOpenChange, onDismiss }: Props) => 
         <DialogHeader>
           <div className="flex items-center gap-2 text-primary mb-1">
             <Sparkles className="h-5 w-5" />
-            <span className="text-xs font-medium uppercase tracking-wide">Weekly Mental Health Report</span>
+            <span className="text-xs font-medium uppercase tracking-wide">
+              {variant === 'last-week' ? 'Previous week wrap-up' : 'Weekly report'}
+            </span>
           </div>
-          <DialogTitle>{weekLabel}</DialogTitle>
-          <DialogDescription>AI-generated insights from your journals, moods, and conversations</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {formatWeekRange(report)} · Based on your journals, chats, and wellness activities
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 text-sm">
           <p className="text-base leading-relaxed font-medium border-l-4 border-primary pl-3 py-1">
             {report.summary}
           </p>
+
+          {report.activityStats && (
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border p-2">
+                <p className="text-lg font-semibold">{report.activityStats.journalEntries ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Journals</p>
+              </div>
+              <div className="rounded-lg border p-2">
+                <p className="text-lg font-semibold">{report.activityStats.conversations ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Chats</p>
+              </div>
+              <div className="rounded-lg border p-2">
+                <p className="text-lg font-semibold">
+                  {report.activityStats.exerciseCompletions ??
+                    report.activityStats.activitiesCompleted ??
+                    0}
+                </p>
+                <p className="text-xs text-muted-foreground">Exercises</p>
+              </div>
+            </div>
+          )}
 
           {report.emotionalSummary && (
             <section>

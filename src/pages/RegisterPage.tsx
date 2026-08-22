@@ -8,10 +8,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleContinueButton from '@/components/auth/GoogleContinueButton';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -33,22 +34,30 @@ const RegisterPage = () => {
     try {
       const result = await register(name, email, password);
 
-      if (result.ok) {
-        if (result.needsVerification) {
-          toast.success('Account created. Check your email to verify, then sign in.');
-          navigate('/login');
-        } else {
-          toast.success('Account created successfully!');
-          navigate('/');
-        }
+      if (!result.ok) {
+        const errorMessage = 'message' in result ? result.message : 'Registration failed';
+        toast.error(errorMessage);
+        return;
+      }
+
+      if (result.needsVerification) {
+        toast.success('Account created. Check your email to verify, then sign in.');
+        navigate('/login');
       } else {
-        toast.error(result.message);
+        toast.success('Account created successfully!');
+        navigate('/');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create account');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogle = async (credential: string) => {
+    await loginWithGoogle(credential);
+    toast.success('Account created with Google');
+    navigate('/');
   };
 
   return (
@@ -146,14 +155,7 @@ const RegisterPage = () => {
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" type="button">
-                  Google
-                </Button>
-                <Button variant="outline" type="button">
-                  Facebook
-                </Button>
-              </div>
+              <GoogleContinueButton onCredential={handleGoogle} disabled={isLoading || !agreeTerms} />
               <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
                 <Link to="/login" className="text-primary hover:underline">

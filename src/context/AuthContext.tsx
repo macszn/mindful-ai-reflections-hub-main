@@ -16,6 +16,7 @@ export type RegisterOutcome =
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<RegisterOutcome>;
   logout: () => void;
   isLoading: boolean;
@@ -63,6 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         setUser(loggedInUser);
         localStorage.setItem('Mindful_users', JSON.stringify(loggedInUser));
+        localStorage.setItem('auth-token', data.token);
         setIsLoading(false);
         return true;
       }
@@ -77,6 +79,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       return false;
     }
+  };
+
+  const loginWithGoogle = async (credential: string) => {
+    const response = await axios.post(`${API_BASE}/auth/google`, { credential });
+    const data = response.data;
+    if (!data?.success || !data.user?._id) {
+      throw new Error(data?.error || 'Google sign-in failed');
+    }
+
+    const loggedInUser = {
+      id: data.user._id,
+      name: data.user.name,
+      email: data.user.email,
+    };
+    setUser(loggedInUser);
+    localStorage.setItem('Mindful_users', JSON.stringify(loggedInUser));
+    localStorage.setItem('auth-token', data.token);
   };
 
   const register = async (name: string, email: string, password: string): Promise<RegisterOutcome> => {
@@ -148,11 +167,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('Mindful_users');
+    localStorage.removeItem('auth-token');
   };
 
   const value = {
     user,
     login,
+    loginWithGoogle,
     register,
     logout,
     isLoading,

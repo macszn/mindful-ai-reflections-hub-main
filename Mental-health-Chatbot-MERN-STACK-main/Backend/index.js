@@ -25,8 +25,10 @@ const {
 } = require('./lib/riskDetection');
 const { runChat, getModel } = require('./lib/runChat');
 const { buildMemoryContextForChat, updateMemoryFromExchange } = require('./lib/memoryService');
+const ChatExchange = require('./models/ChatExchange');
 const { configurePush } = require('./lib/pushService');
 const { startNotificationScheduler } = require('./lib/notificationScheduler');
+const { isGoogleAuthConfigured, getGoogleClientId, verifyGoogleIdToken } = require('./lib/googleAuth');
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -113,6 +115,13 @@ app.post('/chat', async (req, res) => {
 
     if (userId) {
       setImmediate(() => {
+        ChatExchange.create({
+          userId,
+          userMessage: String(userInput).slice(0, 4000),
+          assistantMessage: String(response || '').slice(0, 4000),
+          recordedAt: new Date(),
+        }).catch((err) => console.error('[chat] persist exchange:', err.message));
+
         updateMemoryFromExchange(userId, userInput, response).catch((err) =>
           console.error('[memory] async update:', err.message)
         );
@@ -298,6 +307,36 @@ If you did not create an account, you can ignore this email.
   return { sent: true };
 }
 
+async function sendPasswordResetEmail(recipientEmail, displayName, rawToken) {
+  const toAddress = typeof recipientEmail === 'string' ? recipientEmail.trim() : String(recipientEmail || '').trim();
+  const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const resetLink = `${frontendBase}/reset-password?token=${encodeURIComponent(rawToken)}`;
+  const transport = createMailTransport();
+  const appName = process.env.EMAIL_APP_NAME || 'Mindful';
+  const subject = `Reset your ${appName} password`;
+  const textBody = `Hi ${displayName ? String(displayName).trim() : 'there'},\n\nReset your password using this link:\n\n${resetLink}\n\nThis link expires in one hour. If you did not request a password reset, you can ignore this email.`;
+  const htmlBody = `<p>Hi ${escapeHtml(displayName || 'there')},</p><p>Use the button below to reset your ${appName} password. This link expires in one hour.</p><p><a href="${escapeHtmlAttr(resetLink)}">Reset password</a></p><p>If you did not request this, you can ignore this email.</p>`;
+
+  if (!toAddress || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toAddress)) {
+    return { sent: false, resetLink };
+  }
+  if (!transport) {
+    console.warn('[email] Mail not configured. Password reset link for', toAddress, ':', resetLink);
+    return { sent: false, resetLink };
+  }
+
+  const smtpLoginUser = String(process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  await transport.sendMail({
+    from: buildFromAddress(),
+    to: toAddress,
+    replyTo: process.env.EMAIL_REPLY_TO || smtpLoginUser || undefined,
+    subject,
+    text: textBody,
+    html: htmlBody,
+  });
+  return { sent: true };
+}
+
 const jwtSecret = () => process.env.JWT_SECRET || 'secret_chat';
 
 // Schema for Creating user model
@@ -305,9 +344,13 @@ const Users = mongoose.model('Users', {
   name: { type: String },
   email: { type: String, unique: true },
   password: { type: String },
+  googleId: { type: String },
+  authProvider: { type: String, default: 'local' },
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
   tokenExpiry: { type: Date },
+  passwordResetToken: { type: String },
+  passwordResetExpiry: { type: Date },
   date: { type: Date, default: Date.now },
   pushSubscriptions: [
     {
@@ -325,7 +368,57 @@ const Users = mongoose.model('Users', {
     quotes: { type: Boolean, default: true },
     progressScore: { type: Boolean, default: true },
     weeklyReport: { type: Boolean, default: true },
+    streakReminder: { type: Boolean, default: true },
   },
+});
+
+app.post('/forgot-password', async (req, res) => {
+  const genericReply = { success: true, message: 'If an account exists for that email, a password reset link has been sent.' };
+
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!email) return res.status(400).json({ success: false, error: 'Email is required.' });
+
+    const user = await Users.findOne({ email });
+    if (!user) return res.json(genericReply);
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    user.passwordResetToken = hashVerificationToken(rawToken);
+    user.passwordResetExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    const emailOutcome = await sendPasswordResetEmail(email, user.name, rawToken);
+    const response = { ...genericReply };
+    if (!emailOutcome.sent && process.env.NODE_ENV !== 'production') response.resetLink = emailOutcome.resetLink;
+    return res.json(response);
+  } catch (err) {
+    console.error('forgot-password:', err);
+    return res.status(500).json({ success: false, error: 'Could not process the password reset request.' });
+  }
+});
+
+app.post('/reset-password', async (req, res) => {
+  try {
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!token || !password) return res.status(400).json({ success: false, error: 'Reset token and password are required.' });
+    if (password.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
+
+    const user = await Users.findOne({
+      passwordResetToken: hashVerificationToken(token),
+      passwordResetExpiry: { $gt: new Date() },
+    });
+    if (!user) return res.status(400).json({ success: false, error: 'This reset link is invalid or expired.' });
+
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpiry = undefined;
+    await user.save();
+    return res.json({ success: true, message: 'Your password has been reset. You can sign in now.' });
+  } catch (err) {
+    console.error('reset-password:', err);
+    return res.status(500).json({ success: false, error: 'Could not reset the password.' });
+  }
 });
 
 // Creating endpoint for signup — no JWT until email is verified
@@ -411,7 +504,18 @@ app.post('/login', async (req, res) => {
   const { password } = req.body;
 
   const user = await Users.findOne({ email });
-  if (!user || user.password !== password) {
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Invalid credentials' });
+  }
+
+  if (!user.password) {
+    return res.status(401).json({
+      success: false,
+      error: 'This account uses Google sign-in. Use Continue with Google.',
+    });
+  }
+
+  if (user.password !== password) {
     return res.status(401).json({ success: false, error: 'Invalid credentials' });
   }
 
@@ -430,6 +534,58 @@ app.post('/login', async (req, res) => {
   delete userResponse.verificationToken;
   delete userResponse.tokenExpiry;
   res.json({ success: true, token, user: userResponse });
+});
+
+app.get('/auth/google/config', (_req, res) => {
+  res.json({
+    enabled: isGoogleAuthConfigured(),
+    clientId: isGoogleAuthConfigured() ? getGoogleClientId() : null,
+  });
+});
+
+app.post('/auth/google', async (req, res) => {
+  try {
+    if (!isGoogleAuthConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Google sign-in is not configured. Set GOOGLE_CLIENT_ID in Backend/.env.',
+      });
+    }
+
+    const credential = req.body?.credential;
+    const profile = await verifyGoogleIdToken(credential);
+
+    let user = await Users.findOne({ email: profile.email });
+    if (!user) {
+      user = new Users({
+        name: profile.name,
+        email: profile.email,
+        googleId: profile.googleId,
+        authProvider: 'google',
+        isVerified: true,
+      });
+      await user.save();
+    } else {
+      user.googleId = profile.googleId;
+      user.isVerified = true;
+      if (!user.name && profile.name) user.name = profile.name;
+      await user.save();
+    }
+
+    const token = jwt.sign({ userId: user._id }, jwtSecret());
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.verificationToken;
+    delete userResponse.tokenExpiry;
+
+    return res.json({ success: true, token, user: userResponse });
+  } catch (err) {
+    console.error('[auth/google]', err.message);
+    return res.status(401).json({
+      success: false,
+      error: err.message || 'Google sign-in failed',
+    });
+  }
 });
 
 app.get('/verify-email', async (req, res) => {

@@ -6,10 +6,11 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, X, Moon, Sun, Bot } from 'lucide-react';
+import { Menu, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
 import UserMenu from './UserMenu';
+import Logo from './Logo';
 
 const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
@@ -19,12 +20,7 @@ const Navbar = () => {
   return (
     <nav className="py-4 border-b border-border sticky top-0 z-50 bg-background/95 backdrop-blur-sm">
       <div className="container-custom flex items-center justify-between">
-        <Link to="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
-            <Bot className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-xl">Mindful</span>
-        </Link>
+        <Logo />
         
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center space-x-6">

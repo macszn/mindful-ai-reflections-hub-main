@@ -8,11 +8,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleContinueButton from '@/components/auth/GoogleContinueButton';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   useEffect(() => {
     if (searchParams.get('verified') === '1') {
@@ -38,11 +39,17 @@ const LoginPage = () => {
       } else {
         toast.error('Invalid email or password');
       }
-    } catch (error) {
+      } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to login');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogle = async (credential: string) => {
+    await loginWithGoogle(credential);
+    toast.success('Signed in with Google');
+    navigate('/');
   };
 
   return (
@@ -116,14 +123,7 @@ const LoginPage = () => {
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" type="button">
-                  Google
-                </Button>
-                <Button variant="outline" type="button">
-                  Facebook
-                </Button>
-              </div>
+              <GoogleContinueButton onCredential={handleGoogle} disabled={isLoading} />
               <p className="text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}
                 <Link to="/register" className="text-primary hover:underline">

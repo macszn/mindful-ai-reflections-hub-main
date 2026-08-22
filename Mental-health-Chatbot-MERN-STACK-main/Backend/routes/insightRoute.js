@@ -7,6 +7,7 @@ const {
   computeWellnessScore,
   upsertTodayScore,
   getScoreHistory,
+  wellnessLabel,
 } = require('../lib/wellnessScore');
 const router = express.Router();
 
@@ -54,14 +55,6 @@ router.get('/:userId/wellness-score', async (req, res) => {
     return res.status(500).json({ error: 'Failed to fetch wellness score' });
   }
 });
-
-function wellnessLabel(score) {
-  if (score >= 85) return 'Thriving';
-  if (score >= 70) return 'Strong';
-  if (score >= 55) return 'Steady';
-  if (score >= 40) return 'Building';
-  return 'Needs care';
-}
 
 router.post('/:userId/recommendations', async (req, res) => {
   try {
