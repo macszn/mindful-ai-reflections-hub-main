@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { Calendar as CalendarIcon, PlusCircle, Edit, Trash2, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { getApiBase } from '@/utils/api';
 import { useAuth } from '../context/AuthContext';
 
 type MoodEntry = {
@@ -82,7 +83,7 @@ const JournalPage = () => {
     const fetchEntries = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`http://localhost:4000/api/journal?userId=${user.id}`, {
+        const response = await fetch(`${getApiBase()}/api/journal?userId=${user.id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -154,7 +155,7 @@ const JournalPage = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/journal?userId=${user.id}`, {
+      const response = await fetch(`${getApiBase()}/api/journal?userId=${user.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,7 +232,7 @@ const JournalPage = () => {
 
     setIsUpdating(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/journal/${isEditing}?userId=${user.id}`, {
+      const response = await fetch(`${getApiBase()}/api/journal/${isEditing}?userId=${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -281,7 +282,7 @@ const JournalPage = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/journal/${id}?userId=${user.id}`, {
+      const response = await fetch(`${getApiBase()}/api/journal/${id}?userId=${user.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
