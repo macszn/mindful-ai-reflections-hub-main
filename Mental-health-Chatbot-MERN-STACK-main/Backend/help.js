@@ -23,7 +23,7 @@ app.get('/',(req,res)=>{
   res.send("Server is running");
 })
 
-const MODEL_NAME = "gemini-pro";
+const MODEL_NAME = "gemini-3.6-flash";
 const API_KEY = process.env.API_KEY;
 
 const genAI = new GoogleGenerativeAI(API_KEY);

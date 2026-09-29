@@ -7,7 +7,7 @@ const WeeklyReport = require('../models/WeeklyReport');
 const UserMemory = require('../models/UserMemory');
 const { computeWellnessScore } = require('./wellnessScore');
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 const MOOD_SCORE = {
   angry: 1,

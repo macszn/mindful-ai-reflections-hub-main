@@ -6,7 +6,7 @@ const {
 } = require('./riskDetection');
 const { sanitizeConversationHistory } = require('./memoryService');
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 const BASE_SYSTEM_PROMPT = `You are Mindful, a supportive mental health and life guidance companion. Your primary role is to help users work through challenges with clear, practical advice they can act on — relationships, family, work stress, anxiety, habits, communication, boundaries, and everyday wellbeing.
 
