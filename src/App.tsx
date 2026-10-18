@@ -25,6 +25,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { AuthProvider } from "./context/AuthContext";
 import WeeklyReportGate from "./components/reports/WeeklyReportGate";
+import TermsConsentModal from "./components/legal/TermsConsentModal";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
         }}
       />
         <BrowserRouter>
+          <TermsConsentModal />
           <div className="flex flex-col min-h-screen">
             <Navbar />
             <main className="flex-1">
