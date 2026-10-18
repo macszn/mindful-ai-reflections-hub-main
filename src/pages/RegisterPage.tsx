@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +19,6 @@ const RegisterPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -139,26 +137,12 @@ const RegisterPage = () => {
                   </button>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="terms" 
-                  checked={agreeTerms} 
-                  onCheckedChange={() => setAgreeTerms(!agreeTerms)}
-                  required
-                />
-                <Label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  I agree to the{' '}
-                  <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link>
-                  {' '}and{' '}
-                  <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
-                </Label>
-              </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={isLoading || !agreeTerms}
+                disabled={isLoading}
               >
                 {isLoading ? (
                   <>
@@ -179,7 +163,7 @@ const RegisterPage = () => {
                   </span>
                 </div>
               </div>
-              <GoogleContinueButton onCredential={handleGoogle} disabled={isLoading || !agreeTerms} />
+              <GoogleContinueButton onCredential={handleGoogle} disabled={isLoading} />
               <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
                 <Link to="/login" className="text-primary hover:underline">
