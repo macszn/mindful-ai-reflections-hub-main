@@ -136,6 +136,8 @@ function buildJournalTrends(recentEntries, previousEntries) {
 
 async function syncEmotionalHistoryFromJournals(userId) {
   if (!isValidUserId(userId)) return { trends: [], snapshots: [] };
+  const memory = await UserMemory.findOne({ userId }).select('consentEnabled').lean();
+  if (!memory?.consentEnabled) return { trends: [], snapshots: [] };
 
   const now = moment();
   const recentStart = moment().subtract(29, 'days').startOf('day');
@@ -176,12 +178,11 @@ async function syncEmotionalHistoryFromJournals(userId) {
     notes: '',
   };
 
-  const memory = await getOrCreateMemory(userId);
-  if (memory) {
-    memory.emotionalSnapshots = [recentSnapshot, previousSnapshot];
-    memory.journalTrends = trends;
-    await memory.save();
-  }
+  const result = await UserMemory.updateOne(
+    { userId, consentEnabled: true },
+    { $set: { emotionalSnapshots: [recentSnapshot, previousSnapshot], journalTrends: trends } }
+  );
+  if (result.matchedCount === 0) return { trends: [], snapshots: [] };
 
   return { trends, snapshots: [recentSnapshot, previousSnapshot] };
 }
@@ -305,8 +306,12 @@ function quickExtractFromMessage(text) {
 async function buildMemoryContext(userId) {
   if (!isValidUserId(userId)) return { text: '', memory: null };
 
+  const existingMemory = await UserMemory.findOne({ userId });
+  if (!existingMemory?.consentEnabled) {
+    return { text: '', memory: existingMemory, journalData: null };
+  }
   const journalData = await syncEmotionalHistoryFromJournals(userId);
-  const memory = await getOrCreateMemory(userId);
+  const memory = await UserMemory.findOne({ userId });
   const text = formatMemoryForPrompt(memory, journalData);
 
   return { text, memory, journalData };
@@ -351,7 +356,8 @@ async function buildMemoryContextForChat(userId, userInput) {
     return { text: '', memory: null, memoryUsed: false };
   }
 
-  const memory = await getOrCreateMemory(userId);
+  const memory = await UserMemory.findOne({ userId });
+  if (!memory?.consentEnabled) return { text: '', memory, memoryUsed: false };
   const text = formatPastDiscussionsForChat(memory);
   return { text, memory, memoryUsed: Boolean(text.trim()) };
 }
@@ -360,7 +366,7 @@ async function applyMemoryUpdates(userId, updates) {
   if (!isValidUserId(userId) || !updates) return;
 
   const memory = await getOrCreateMemory(userId);
-  if (!memory) return;
+  if (!memory?.consentEnabled) return;
 
   if (updates.triggers?.length) {
     memory.triggers = mergeTriggers(memory.triggers, updates.triggers);

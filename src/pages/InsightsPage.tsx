@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { collectUserChatMessages } from '@/utils/collectChatMessages';
 import WellnessScoreCard, { type WellnessScoreData } from '@/components/insights/WellnessScoreCard';
-import NotificationSettingsCard from '@/components/insights/NotificationSettingsCard';
 import WeeklyReportCard from '@/components/insights/WeeklyReportCard';
 import { getApiBase } from '@/utils/api';
 import {
@@ -203,8 +202,6 @@ const InsightsPage = () => {
         history={weeklyReportHistory}
         loading={weeklyReportLoading}
       />
-      <NotificationSettingsCard />
-
       {/* Stats overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <Card>

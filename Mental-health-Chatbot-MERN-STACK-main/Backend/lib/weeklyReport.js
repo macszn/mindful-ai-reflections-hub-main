@@ -230,7 +230,7 @@ async function gatherWeekActivity(userId, weekStart, weekEnd) {
   const priorStart = weekStart.clone().subtract(1, 'week');
   const priorEnd = weekEnd.clone().subtract(1, 'week');
 
-  const [journals, priorJournals, chats, activities, memory, wellness] = await Promise.all([
+  const [journals, priorJournals, chats, activities, memory] = await Promise.all([
     MoodEntry.find({
       userId,
       date: { $gte: weekStart.toDate(), $lte: weekEnd.toDate() },
@@ -251,10 +251,16 @@ async function gatherWeekActivity(userId, weekStart, weekEnd) {
       completedAt: { $gte: weekStart.toDate(), $lte: weekEnd.toDate() },
     }).lean(),
     UserMemory.findOne({ userId }).lean(),
-    computeWellnessScore(userId).catch(() => null),
   ]);
 
-  return { journals, priorJournals, chats, activities, memory, wellness };
+  const wellness = memory?.consentEnabled
+    ? await computeWellnessScore(userId)
+    : null;
+  const reportChats = memory?.consentEnabled
+    ? chats
+    : chats.map(({ userMessage: _userMessage, assistantMessage: _assistantMessage, ...chat }) => chat);
+
+  return { journals, priorJournals, chats: reportChats, activities, memory, wellness };
 }
 
 async function generateReportContent(userId, weekStart, weekEnd, tense = 'this') {
@@ -270,6 +276,19 @@ async function generateReportContent(userId, weekStart, weekEnd, tense = 'this')
 
   if (!hasAny) {
     return null;
+  }
+
+  if (!data.memory?.consentEnabled) {
+    return {
+      summary: activitySentence(stats, tense),
+      emotionalSummary: 'Personalized emotional reflections are off. This report uses activity counts only.',
+      dominantMoods: [],
+      stressTriggers: [],
+      positiveImprovements: [],
+      recommendations: [],
+      activityStats: stats,
+      tense,
+    };
   }
 
   const payload = { ...data, tense, stats };

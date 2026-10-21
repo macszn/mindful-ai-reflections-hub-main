@@ -10,6 +10,8 @@ const {
   getPreviousWeekBounds,
   isMondayModalWindow,
 } = require('../lib/weeklyReport');
+const { requireOwnUser } = require('../lib/auth');
+const WeeklyReport = require('../models/WeeklyReport');
 
 const router = express.Router();
 
@@ -161,6 +163,39 @@ router.post('/:userId/:reportId/seen', async (req, res) => {
   } catch (err) {
     console.error('[weeklyReport] seen error:', err);
     return res.status(500).json({ error: 'Failed to mark report as seen' });
+  }
+});
+
+router.patch('/:userId/:reportId/reflection', requireOwnUser, async (req, res) => {
+  try {
+    const { userId, reportId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(reportId)) {
+      return res.status(400).json({ error: 'Invalid id' });
+    }
+
+    const fields = ['learned', 'helped', 'nextWeek'];
+    const reflection = {};
+    for (const field of fields) {
+      const value = req.body?.[field];
+      if (typeof value !== 'string' || !value.trim() || value.trim().length > 2000) {
+        return res.status(400).json({
+          error: 'Please answer all three prompts using no more than 2,000 characters each.',
+        });
+      }
+      reflection[field] = value.trim();
+    }
+
+    const report = await WeeklyReport.findOneAndUpdate(
+      { _id: reportId, userId },
+      { $set: { reflection: { ...reflection, completedAt: new Date() } } },
+      { new: true, runValidators: true }
+    );
+    if (!report) return res.status(404).json({ error: 'Weekly report not found' });
+
+    return res.json({ reflection: report.reflection });
+  } catch (err) {
+    console.error('[weeklyReport] reflection save error:', err);
+    return res.status(500).json({ error: 'Failed to save weekly reflection' });
   }
 });
 

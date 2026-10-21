@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Sparkles, TrendingUp, AlertCircle, Lightbulb, History } from 'lucide-react';
 import type { WeeklyReport } from '@/utils/weeklyReport';
-import { formatWeekRange } from '@/utils/weeklyReport';
+import { formatWeekRange, saveWeeklyReflection } from '@/utils/weeklyReport';
 import WeeklyReportModal from '@/components/reports/WeeklyReportModal';
+import toast from 'react-hot-toast';
 
 type Props = {
   report: WeeklyReport | null;
@@ -98,10 +100,36 @@ function ReportBody({ report }: { report: WeeklyReport }) {
 const WeeklyReportCard = ({ report, history = [], loading }: Props) => {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState<WeeklyReport | null>(null);
+  const [reflection, setReflection] = useState({ learned: '', helped: '', nextWeek: '' });
+  const [savingReflection, setSavingReflection] = useState(false);
+  const [reflectionSaved, setReflectionSaved] = useState(false);
+
+  useEffect(() => {
+    setReflection({
+      learned: report?.reflection?.learned || '',
+      helped: report?.reflection?.helped || '',
+      nextWeek: report?.reflection?.nextWeek || '',
+    });
+    setReflectionSaved(Boolean(report?.reflection?.completedAt));
+  }, [report?._id, report?.reflection]);
 
   const pastReports = history.filter(
     (r) => r._id !== report?._id && (r.finalized || r.tense === 'last')
   );
+
+  const submitReflection = async () => {
+    if (!report?._id) return;
+    setSavingReflection(true);
+    try {
+      await saveWeeklyReflection(report._id, reflection);
+      setReflectionSaved(true);
+      toast.success('Your weekly reflection is saved');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not save your reflection');
+    } finally {
+      setSavingReflection(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -151,6 +179,52 @@ const WeeklyReportCard = ({ report, history = [], loading }: Props) => {
           ) : (
             <ReportBody report={report} />
           )}
+
+          <section className="mt-6 space-y-4 border-t pt-5">
+            <div>
+              <h3 className="font-semibold">Your personal reflection</h3>
+              <p className="text-sm text-muted-foreground">
+                A little reflection can help you notice what you learned. This is about
+                self-understanding, not how often you used the app.
+              </p>
+            </div>
+            {([
+              ['learned', 'What have you learned about yourself this week?'],
+              ['helped', 'What helped you when you felt stressed?'],
+              ['nextWeek', 'Is there anything you would like to approach differently next week?'],
+            ] as const).map(([key, prompt]) => (
+              <div key={key} className="space-y-2">
+                <label
+                  htmlFor={`reflection-${report?._id || 'week'}-${key}`}
+                  className="text-sm font-medium"
+                >
+                  {prompt}
+                </label>
+                <Textarea
+                  id={`reflection-${report?._id || 'week'}-${key}`}
+                  value={reflection[key]}
+                  maxLength={2000}
+                  rows={3}
+                  disabled={!report || savingReflection}
+                  onChange={(event) =>
+                    setReflection((current) => ({ ...current, [key]: event.target.value }))
+                  }
+                />
+              </div>
+            ))}
+            <Button
+              onClick={() => void submitReflection()}
+              disabled={
+                !report ||
+                savingReflection ||
+                !reflection.learned.trim() ||
+                !reflection.helped.trim() ||
+                !reflection.nextWeek.trim()
+              }
+            >
+              {savingReflection ? 'Saving…' : reflectionSaved ? 'Update reflection' : 'Save reflection'}
+            </Button>
+          </section>
 
           {historyOpen && pastReports.length > 0 && (
             <div className="mt-6 border-t pt-4">

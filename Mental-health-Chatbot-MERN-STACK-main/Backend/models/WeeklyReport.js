@@ -12,6 +12,16 @@ const activityStatsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const reflectionSchema = new mongoose.Schema(
+  {
+    learned: { type: String, trim: true, maxlength: 2000, default: '' },
+    helped: { type: String, trim: true, maxlength: 2000, default: '' },
+    nextWeek: { type: String, trim: true, maxlength: 2000, default: '' },
+    completedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const weeklyReportSchema = new mongoose.Schema(
   {
     userId: {
@@ -34,6 +44,7 @@ const weeklyReportSchema = new mongoose.Schema(
     positiveImprovements: [{ type: String }],
     recommendations: [{ type: String }],
     activityStats: { type: activityStatsSchema, default: () => ({}) },
+    reflection: { type: reflectionSchema, default: () => ({}) },
     seenAt: { type: Date, default: null },
     generatedAt: { type: Date, default: Date.now },
   },
