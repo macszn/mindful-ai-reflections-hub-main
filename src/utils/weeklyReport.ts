@@ -1,4 +1,4 @@
-import { getApiBase, getStoredUser } from '@/utils/api';
+import { getApiBase, getAuthHeaders, getStoredUser } from '@/utils/api';
 
 export type WeeklyActivityStats = {
   journalEntries?: number;
@@ -25,6 +25,12 @@ export type WeeklyReport = {
   activityStats?: WeeklyActivityStats;
   seenAt?: string | null;
   generatedAt?: string;
+  reflection?: {
+    learned?: string;
+    helped?: string;
+    nextWeek?: string;
+    completedAt?: string | null;
+  };
 };
 
 export async function fetchCurrentWeeklyReport(): Promise<{
@@ -35,7 +41,9 @@ export async function fetchCurrentWeeklyReport(): Promise<{
   const user = getStoredUser();
   if (!user?.id) return { report: null };
 
-  const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}/current`);
+  const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}/current`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to load weekly report');
   return res.json();
 }
@@ -80,9 +88,31 @@ export async function fetchWeeklyReportHistory(limit = 16): Promise<{
   const user = getStoredUser();
   if (!user?.id) return { reports: [], history: [] };
 
-  const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}?limit=${limit}`);
+  const res = await fetch(`${getApiBase()}/api/weekly-reports/${user.id}?limit=${limit}`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) return { reports: [], history: [] };
   return res.json();
+}
+
+export async function saveWeeklyReflection(
+  reportId: string,
+  reflection: { learned: string; helped: string; nextWeek: string }
+) {
+  const user = getStoredUser();
+  if (!user?.id) throw new Error('Please sign in to save your reflection');
+
+  const response = await fetch(
+    `${getApiBase()}/api/weekly-reports/${user.id}/${reportId}/reflection`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(reflection),
+    }
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Failed to save your reflection');
+  return data.reflection as NonNullable<WeeklyReport['reflection']>;
 }
 
 export function formatWeekRange(report: WeeklyReport) {

@@ -26,6 +26,8 @@ const {
 const { runChat, getModel } = require('./lib/runChat');
 const { buildMemoryContextForChat, updateMemoryFromExchange } = require('./lib/memoryService');
 const ChatExchange = require('./models/ChatExchange');
+const UserMemory = require('./models/UserMemory');
+const { verifyAuthToken } = require('./lib/auth');
 const { configurePush } = require('./lib/pushService');
 const { startNotificationScheduler } = require('./lib/notificationScheduler');
 const { isGoogleAuthConfigured, getGoogleClientId, verifyGoogleIdToken } = require('./lib/googleAuth');
@@ -115,17 +117,25 @@ app.post('/chat', async (req, res) => {
     });
 
     if (userId) {
-      setImmediate(() => {
-        ChatExchange.create({
-          userId,
-          userMessage: String(userInput).slice(0, 4000),
-          assistantMessage: String(response || '').slice(0, 4000),
-          recordedAt: new Date(),
-        }).catch((err) => console.error('[chat] persist exchange:', err.message));
-
-        updateMemoryFromExchange(userId, userInput, response).catch((err) =>
-          console.error('[memory] async update:', err.message)
-        );
+      setImmediate(async () => {
+        try {
+          const optedIn = await UserMemory.exists({ userId, consentEnabled: true });
+          if (!optedIn) return;
+          const savedExchange = await ChatExchange.create({
+            userId,
+            userMessage: String(userInput).slice(0, 4000),
+            assistantMessage: String(response || '').slice(0, 4000),
+            recordedAt: new Date(),
+          });
+          const stillOptedIn = await UserMemory.exists({ userId, consentEnabled: true });
+          if (!stillOptedIn) {
+            await ChatExchange.deleteOne({ _id: savedExchange._id, userId });
+            return;
+          }
+          await updateMemoryFromExchange(userId, userInput, response);
+        } catch (err) {
+          console.error('[memory] opted-in chat persistence:', err.message);
+        }
       });
     }
 
@@ -706,6 +716,37 @@ app.use("/api/activities", activityRoute);
 app.use("/api/notifications", notificationRoute);
 app.use("/api/weekly-reports", weeklyReportRoute);
 
+app.delete('/api/account/:userId', async (req, res) => {
+  try {
+    const auth = await verifyAuthToken(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    if (auth.userId !== String(req.params.userId)) {
+      return res.status(403).json({ error: 'You can only delete your own account' });
+    }
+
+    const user = await Users.findById(auth.userId);
+    if (!user) return res.status(404).json({ error: 'Account not found' });
+
+    const MoodEntry = require('./models/MoodEntry');
+    const ActivityCompletion = require('./models/ActivityCompletion');
+    const WeeklyReport = require('./models/WeeklyReport');
+    const WellnessScore = require('./models/WellnessScore');
+    await Promise.all([
+      MoodEntry.deleteMany({ userId: auth.userId }),
+      ActivityCompletion.deleteMany({ userId: auth.userId }),
+      ChatExchange.deleteMany({ userId: auth.userId }),
+      UserMemory.deleteMany({ userId: auth.userId }),
+      WeeklyReport.deleteMany({ userId: auth.userId }),
+      WellnessScore.deleteMany({ userId: auth.userId }),
+    ]);
+    await Users.deleteOne({ _id: auth.userId });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting account and personal data:', error);
+    return res.status(500).json({ error: 'Failed to delete account and data' });
+  }
+});
 
 
 

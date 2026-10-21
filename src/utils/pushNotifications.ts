@@ -1,4 +1,4 @@
-import { getApiBase, getStoredUser } from '@/utils/api';
+import { getApiBase, getAuthHeaders, getStoredUser } from '@/utils/api';
 
 function urlBase64ToUint8Array(base64String: string) {
   const normalized = base64String.trim();
@@ -73,7 +73,9 @@ export type NotificationPreferences = {
 export async function fetchNotificationStatus() {
   const user = getStoredUser();
   if (!user?.id) return null;
-  const res = await fetch(`${getApiBase()}/api/notifications/preferences/${user.id}`);
+  const res = await fetch(`${getApiBase()}/api/notifications/preferences/${user.id}`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to load notification preferences');
   return res.json() as Promise<{
     preferences: NotificationPreferences;
@@ -138,7 +140,7 @@ export async function enablePushNotifications(
 
   const res = await fetch(`${getApiBase()}/api/notifications/subscribe`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({
       userId: user.id,
       subscription: subscriptionJson,
@@ -172,11 +174,15 @@ export async function disablePushNotifications() {
     await subscription.unsubscribe().catch(() => undefined);
   }
 
-  await fetch(`${getApiBase()}/api/notifications/unsubscribe`, {
+  const response = await fetch(`${getApiBase()}/api/notifications/unsubscribe`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ userId: user.id, endpoint }),
   });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to disable notifications');
+  }
 }
 
 export async function sendTestNotification(
@@ -187,7 +193,7 @@ export async function sendTestNotification(
 
   const res = await fetch(`${getApiBase()}/api/notifications/test`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ userId: user.id, type }),
   });
 

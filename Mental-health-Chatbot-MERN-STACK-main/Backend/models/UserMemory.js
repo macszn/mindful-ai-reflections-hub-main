@@ -58,6 +58,7 @@ const userMemorySchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    consentEnabled: { type: Boolean, default: false },
     triggers: { type: [triggerSchema], default: [] },
     goals: { type: [goalSchema], default: [] },
     discussions: { type: [discussionSchema], default: [] },

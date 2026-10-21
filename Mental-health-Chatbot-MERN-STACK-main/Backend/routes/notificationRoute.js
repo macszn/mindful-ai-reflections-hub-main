@@ -5,8 +5,14 @@ const { computeWellnessScore, upsertTodayScore, formatScoreNotification } = requ
 const { getQuoteOfTheDay, formatQuoteNotification } = require('../lib/quotes');
 const { finalizePreviousWeekReport } = require('../lib/weeklyReport');
 const { getJournalStreakStatus } = require('../lib/journalStreak');
+const { requireOwnUser } = require('../lib/auth');
 
 const router = express.Router();
+
+router.use('/subscribe', requireOwnUser);
+router.use('/unsubscribe', requireOwnUser);
+router.use('/preferences/:userId', requireOwnUser);
+router.use('/test', requireOwnUser);
 
 function getUsersModel() {
   return mongoose.model('Users');

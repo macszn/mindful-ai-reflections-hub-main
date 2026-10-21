@@ -28,23 +28,23 @@ export const TERMS_SECTIONS = [
 export const PRIVACY_SECTIONS = [
   {
     title: 'Information We Collect',
-    body: 'We may collect information that you provide directly, such as your email address, profile details, and support requests. We also collect usage data to help improve the experience and personalize features.',
+    body: 'We store your account name and email, mood journal entries, weekly reflection answers, and activity completion records on the app backend. Chat history is stored in this browser; short chat exchanges are also stored on the backend only when you enable Remember my emotional journey. The app uses local storage for sign-in state and chat copies.',
   },
   {
-    title: 'How We Use Information',
-    body: 'We use your information to provide the service, support your account, improve the app, and communicate important updates. We do not sell your personal data to third parties.',
+    title: 'How Information Is Used and Shared',
+    body: 'The app uses your records to provide the features you choose. Chat messages and the current conversation context are sent to the configured Google Gemini service to generate replies. Only when you turn on Remember my emotional journey may journal and saved chat information be sent to that AI service to create personalized recommendations and emotional weekly reflections. With that setting off, weekly reports show activity counts only. Push notification subscriptions are stored if you enable notifications. Do not include information you would not want processed by these services.',
   },
   {
-    title: 'Data Security',
-    body: 'We use reasonable security measures to protect your data. While no system is completely secure, we work to safeguard your information and restrict access to authorized personnel only.',
+    title: 'Who Can Access Your Information',
+    body: 'Your records are processed by the app backend and configured providers needed to deliver requested features. The app does not provide a clinical service, and these records should not be treated as clinical health records. No system can promise complete security.',
   },
   {
-    title: 'Cookies and Tracking',
-    body: 'We may use cookies and similar technologies to understand how the service is used and to improve performance. You can manage cookies through your browser settings.',
+    title: 'Review, Deletion, and Retention',
+    body: 'In Insights, you can review and turn off saved emotional memory; turning it off deletes saved memory, server-side chat exchanges used for personalization, generated emotional report content, and stored legacy progress scores. You can delete individual chats in Chat. You can permanently delete your account and associated backend records in Insights. Local chat copies remain in this browser until you delete them individually or delete your account from this browser. Simply stopping use of Mindful does not delete your data. Backend data is retained until you delete it; deletion from live app records does not make claims about provider or infrastructure backups.',
   },
   {
-    title: 'Contact',
-    body: 'If you have questions about this Privacy Policy, please contact us at the email address listed in the app footer.',
+    title: 'Your Choices and Contact',
+    body: 'You may use the journal and mood charts without enabling cross-session emotional memory. Turning that setting off disables AI recommendations and personalized weekly emotional reflections. Contact us using the support email listed in the app footer if you have questions about this policy or your information.',
   },
 ] as const;
 

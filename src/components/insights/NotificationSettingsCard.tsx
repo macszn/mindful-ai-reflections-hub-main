@@ -19,6 +19,7 @@ const NotificationSettingsCard = () => {
   const [enabled, setEnabled] = useState(false);
   const [deviceCount, setDeviceCount] = useState(0);
   const [pushConfigured, setPushConfigured] = useState(false);
+  const [statusError, setStatusError] = useState('');
   const supported = isPushSupported();
 
   const refresh = async () => {
@@ -28,6 +29,7 @@ const NotificationSettingsCard = () => {
     }
     try {
       const status = await fetchNotificationStatus();
+      setStatusError('');
       if (status) {
         setEnabled(Boolean(status.preferences?.enabled && status.deviceCount > 0));
         setDeviceCount(status.deviceCount || 0);
@@ -35,6 +37,7 @@ const NotificationSettingsCard = () => {
       }
     } catch (err) {
       console.error(err);
+      setStatusError(err instanceof Error ? err.message : 'Could not load notification settings');
     } finally {
       setLoading(false);
     }
@@ -97,7 +100,7 @@ const NotificationSettingsCard = () => {
   };
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-0">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           {enabled ? <Bell className="h-5 w-5 text-primary" /> : <BellOff className="h-5 w-5" />}
@@ -110,6 +113,8 @@ const NotificationSettingsCard = () => {
       <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
         {loading ? (
           <p className="text-sm text-muted-foreground">Checking notification status…</p>
+        ) : statusError ? (
+          <p role="alert" className="text-sm text-destructive">{statusError}</p>
         ) : !supported ? (
           <p className="text-sm text-muted-foreground">Push notifications are not supported in this browser.</p>
         ) : !pushConfigured ? (

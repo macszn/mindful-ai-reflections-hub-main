@@ -4,6 +4,11 @@ export function getApiBase() {
   return API_BASE.replace(/\/$/, '');
 }
 
+export function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('auth-token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function getStoredUser(): { id?: string; name?: string; email?: string } | null {
   try {
     const raw = localStorage.getItem('Mindful_users');
